@@ -10,7 +10,8 @@ Free license for 1M calls/month (1K/day for forecasts), current weather, forecas
 Pros: worldwide, generous free use, signup per email (customer)
 Cons: limited historical data
 Sample URI: http://api.openweathermap.org/data/2.5/weather?lat=41.5793152&lon=-111.861254&units=metric&appid=<<API key>>
-
+Response:
+{"coord":{"lon":-111.86,"lat":41.58},"weather":[{"id":800,"main":"Clear","description":"clear sky","icon":"01d"}],"base":"stations","main":{"temp":22.57,"feels_like":19.13,"temp_min":21.67,"temp_max":23.33,"pressure":1022,"humidity":23},"visibility":16093,"wind":{"speed":2.16,"deg":293},"clouds":{"all":1},"dt":1592846389,"sys":{"type":1,"id":3468,"country":"US","sunrise":1592826829,"sunset":1592881515},"timezone":-21600,"id":5776228,"name":"Hyrum","cod":200}
 
 WeatherBit API
 https://www.weatherbit.io/api
@@ -19,6 +20,8 @@ Free license for 500 calls/day, current weather, alerts, 16 day forecasts
 Pros: worldwide, generous free use, signup per email (customer)
 Cons: no historical data
 Sample URI: https://api.weatherbit.io/v2.0/current?lat=41.5793152&lon=-111.861254&units=I&key=<<API key>>
+Response:
+{"data":[{"rh":36,"pod":"d","lon":-111.86,"pres":862.4,"timezone":"America\/Denver","ob_time":"2020-06-22 16:45","country_code":"US","clouds":0,"ts":1592844300,"solar_rad":825.7,"state_code":"UT","city_name":"Hyrum","wind_spd":2.8,"last_ob_time":"2020-06-22T16:45:00","wind_cdir_full":"northeast","wind_cdir":"NE","slp":1010.1,"vis":3.1,"h_angle":-22.5,"sunset":"03:05","dni":893.62,"dewpt":42.5,"snow":0,"uv":8.69022,"precip":0,"wind_dir":51,"sunrise":"11:53","ghi":825.66,"dhi":110.61,"aqi":32,"lat":41.58,"weather":{"icon":"c01d","code":"800","description":"Clear sky"},"datetime":"2020-06-22:17","temp":70.9,"station":"UCC28","elev_angle":53.88,"app_temp":69.3}],"count":1}
 
 
 AccuWeather API
@@ -50,8 +53,9 @@ API is URI with JSON response
 Free license for 1K calls/day, current conditions, forecasts, air quality
 Pros: worldwide, generous free use, signup per email (customer)
 Cons:
-Sample URI: https://api.climacell.co/v3/weather/realtime?lat=41.5793152&lon=-111.861254&unit_system=us&fields%5B%5D=temp&fields%5B%5D=humidity&apikey=<<API key>>
-
+Sample URI: https://api.climacell.co/v3/weather/realtime?lat=41.5793152&lon=-111.861254&unit_system=us&fields%5B%5D=temp&fields%5B%5D=humidity&fields%5B%5D=feels_like&fields%5B%5D=dewpoint&fields%5B%5D=wind_speed&fields%5B%5D=wind_direction&fields%5B%5D=wind_gust&fields%5B%5D=baro_pressure&fields%5B%5D=precipitation&fields%5B%5D=precipitation_type&fields%5B%5D=sunrise&fields%5B%5D=sunset&fields%5B%5D=cloud_cover&fields%5B%5D=surface_shortwave_radiation&apikey=<<API key>>
+Response:
+{"lat":41.5793152,"lon":-111.861254,"temp":{"value":70.93,"units":"F"},"feels_like":{"value":70.93,"units":"F"},"dewpoint":{"value":41.45,"units":"F"},"wind_speed":{"value":4.47,"units":"mph"},"wind_gust":{"value":5.73,"units":"mph"},"baro_pressure":{"value":29.9674,"units":"inHg"},"humidity":{"value":34.38,"units":"%"},"wind_direction":{"value":354.25,"units":"degrees"},"precipitation":{"value":0,"units":"in/hr"},"precipitation_type":{"value":"none"},"cloud_cover":{"value":0,"units":"%"},"surface_shortwave_radiation":{"value":863.5625,"units":"w/sqm"},"sunrise":{"value":"2020-06-22T11:54:06.603Z"},"sunset":{"value":"2020-06-23T03:05:30.846Z"},"observation_time":{"value":"2020-06-22T17:32:17.592Z"}}
 
 U.S. National Weather Service
 https://www.weather.gov/documentation/services-web-api
