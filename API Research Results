@@ -1,0 +1,69 @@
+Weather API Research Results
+
+This file documents the results of my research on weather APIs for use in the retro weather display.  Each API has a section with the name of the API,
+the URL to its web page, API description, free license limitations, pros, and cons.  They are listed in arbitrary order.
+
+OpenWeatherMap API
+https://openweathermap.org/api
+API is URI with JSON response
+Free license for 1M calls/month (1K/day for forecasts), current weather, forecasts up to 7 days, history up to 5 days.
+Pros: worldwide, generous free use, signup per email (customer)
+Cons: limited historical data
+Sample URI: http://api.openweathermap.org/data/2.5/weather?lat=41.5793152&lon=-111.861254&units=metric&appid=<<API key>>
+
+
+WeatherBit API
+https://www.weatherbit.io/api
+API is URI with JSON response
+Free license for 500 calls/day, current weather, alerts, 16 day forecasts
+Pros: worldwide, generous free use, signup per email (customer)
+Cons: no historical data
+Sample URI: https://api.weatherbit.io/v2.0/current?lat=41.5793152&lon=-111.861254&units=I&key=<<API key>>
+
+
+AccuWeather API
+https://developer.accuweather.com/
+API is URI with JSON response
+Free license is limited to 50 calls per day, and time-limited to 90 days.
+Pros:
+Cons: license is far too restrictive
+
+
+Dark Sky API
+https://darksky.net/dev
+API is shut down, acquired by Apple
+Pros:
+Cons: shut down
+
+
+Weather2020 API
+http://api.weather2020.com/
+API is URI with JSON response
+Free license is forecast only, limitations unclear
+Pros:
+Cons: no current weather conditions, unclear licensing
+
+
+ClimaCell API
+https://www.climacell.co/weather-api/
+API is URI with JSON response
+Free license for 1K calls/day, current conditions, forecasts, air quality
+Pros: worldwide, generous free use, signup per email (customer)
+Cons:
+Sample URI: https://api.climacell.co/v3/weather/realtime?lat=41.5793152&lon=-111.861254&unit_system=us&fields%5B%5D=temp&fields%5B%5D=humidity&apikey=<<API key>>
+
+
+U.S. National Weather Service
+https://www.weather.gov/documentation/services-web-api
+API is URI with JSON response
+Free license, forecast only
+Pros: free
+Cons: forecast only, U.S. only
+
+
+Yahoo Weather API
+https://developer.yahoo.com/weather/
+API is URI with JSON or XML response (RSS format)
+Free license, unrestricted - but signup process can take 3 days
+Pros: worldwide, forecast and current conditions
+Cons: awkward signup process, oddball location ID needed

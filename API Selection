@@ -1,0 +1,8 @@
+Weather API Selection
+
+This documents our selection of weather APIs, in descending order of preference:
+
+1. OpenWeatherMap API
+2. ClimaCell API
+3. WeatherBit API
+4. Yahoo Weather API
