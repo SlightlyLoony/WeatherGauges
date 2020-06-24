@@ -1,0 +1,109 @@
+Design Thoughts...
+
+
+Provisioning
+
+    One challenge for this project is how to let the end user set the thing up.  I'm presuming that we'll let the user connect to the Internet via
+    either wired Ethernet or WiFi.  In either case, the user will need to provision the network interface on our internal Raspberry Pi.  In addition,
+    the user will also need to provision certain elements related directly to Weather Gauges, such as location, time zone, poll interval, etc.  As we
+    ship it, our device will have no input capability (or at most a single switch), and an LCD panel as output.  So how does our poor user configure
+    our device?
+
+    In my own (limited) experience, the easiest such provisionings have been done by the unprovisioned device coming up as a WiFi hotspot with a
+    fixed IP address and an easy-to-type name.  The user then opens a web browser to either the IP or the name, and is presented with a web page for
+    provisioning.  Once the device has been provisioned, the device switches to a normal network client and connects as provisioned.  That is the
+    general approach I am thinking of for our device.
+
+    The provisioning design is comprised of several interactive elements:
+
+        1.  A configuration file that is shipped to the user in a form that means "unprovisioned".  This file contains all of the provisioning
+            information, including network provisioning.  Most commonly, we expect that to consist of the SSID of the WiFi network to connect to,
+            plus the password for that network.  The configuration file will also have an entry that indicates whether the device is provisioned.
+
+        2.  An embedded web server running from within the Weather Gauges software.  This web server will provide three types of web pages:
+
+            A.  The provisioning web pages that interact with the user to allow provisioning the device.  These web pages would ONLY be
+                accessed from outside our device - by any web-capable device (PC, laptop, tablet, mobile phone) owned by the user.  These web pages
+                could be accessed both while the Raspberry Pi is in hotspot mode, and when it is a normal networking client.  Upon completion of
+                provisioning, if the Raspberry Pi is in hotspot mode, it would reboot and come back up as a normal networking client.  Otherwise it
+                would simply restart the Weather Gauges program.
+
+            B.  The Weather Gauges web pages that display weather information in a form intended for display on any web-capable device (PC, laptop,
+                tablet, mobile phone) owned by the user.
+
+            C.  The device's own web pages, accessed ONLY from a browser running on the Raspberry Pi, that provide the Weather Gauges display inside
+                the device.
+
+        3.  A simple SPST switch, accessible to the end user, that would function as follows (note these functions could easily be extended as
+            required for other purposes):
+
+            A.  When pressed for about 1 second, then released: briefly flash the device's status (including, especially, the device's IP address) in
+                place of the usual weather gauges.  This feature would allow the end user to view status information and to discover the device's IP
+                address so he can connect to the provisioning web pages.
+
+            B.  When pressed for about 5 seconds, then released: mark the configuration file as UNPROVISIONED, and restart the Raspberry Pi.  This
+                would cause the Raspberry Pi to come back up as a hotspot, ready for provisioning.  This would allow an end user to start over, as if
+                he had just received our device.  This would be essential to handle things like router replacement, moving to a new home, etc.
+
+            Note that the pair of SPST switches used for changing which data is being displayed could substitute for this SPST switch, by doing the
+            same thing when BOTH are simultaneously pressed.
+
+    Taken together, the elements above will allow both initial provisioning and ongoing provisioning.
+
+
+Weather Gauges program startup and fault handling
+
+    The Weather Gauges program needs to automagically run on startup of the Raspberry Pi, plus it needs to recover in the event of a fault.  The
+    standard Raspbian operating system includes systemd, which makes running on startup trivial if we configure the Weather Gauges software as a
+    systemd service, and so we shall.  Fault recovery is also easy, as systemd will automatically restart the software if it fails and aborts.  The
+    only tricky bit is to handle the (hopefully unlikely) case of the software failing repeatedly.  Systemd has some ability to handle this situation,
+    but the real issue is what the end user could do if this ever actually happened.  The first response, obviously, would be to hold down the SPST
+    switch until it comes back up unprovisioned, the reprovision it.  If that still fails, the end user should contact us with precise information
+    about how they configured it.  If that STILL doesn't solve the problem, the best answer I can think of is for the end user to unplug the device,
+    open it, extract the SD card, and ship it to us for analysis.
+
+
+Device serial
+
+    It would be useful, I think, for each device to have a serial number.  The obvious device-unique number would be the MAC address.  On a Raspberry
+    Pi, the command "ifconfig wlan0" returns information about the WiFi interface, including the MAC.
+
+
+Software updating
+
+    I'm assuming that there will be a need to update the Weather Gauges software from time-to-time.  We need to make a decision about whether to make
+    this a totally automatic function, or one that must be manually initiated by the end user.  In either case, AWS seems like an obvious choice as
+    a host for the update file.  I could imagine either S3 or EC2 (hosting a web server) being used to do this.  Whether manual or automatic, the
+    general process would be the same - the only difference would be whether the process was triggered by detecting a newer version (the automatic
+    variant) or was manually initiated.  The detection of a newer version could be done by simply having our device poll for an update periodically
+    (say, daily), by comparing the file name on the update server to the file name of the currently installed version.
+
+    Once triggered to do an update, our device would download the new version, unzip it into a staging directory, set a flag (0 byte file) to mark
+    the need for an update, and then exit.  When systemd restarted the service, the flag would be detected, the new software copied to the software
+    directory, and then the system restarted.  If any file formats were changed, there must be a mechanism in the Weather Gauges software to detect
+    such a change and perform a file update as part of the startup. This implies that format version information is part of every file.
+
+
+Phoning home
+
+    Since our device will have a general purpose computer (the Raspberry Pi) running in an end user's home or business, and that computer will be
+    Internet-connected, there is the possibility that our device could periodically "phone home".  There are two questions about this that come
+    immediately to mind:
+
+    1.  Why would we do this?  Is there useful information we could get this way?  Is there useful information we could send to the user this way?
+        The only useful thing I can imagine getting from the end user is provisioning information: device serial, lat/lon, possibly some other stuff,
+        but definitely NOT the SSID/WiFi password or any other security sensitive stuff.  The lat/lon would let us build a map of our device
+        locations, and the serial would let us verify which users were up.  I can't think of anything useful we could send to the end users (other
+        than new software versions).  The obvious way to implement this would be to use a web server on a lightweight (cheap) AWS EC2 instance.
+
+    2.  Should we do this?  I don't believe we should do this without our end user's agreement, which implies that the question of phoning home
+        should be part of the provisioning process.  My inclination is to turn it on by default, but make it easy and obvious for those users who
+        want to opt out.
+
+
+Weather history persistence
+
+    The Weather Gauges device will not query weather history from the web weather APIs; instead it will accumulate it as it reads current weather
+    conditions.  How many days of history will be accumulated is configurable.  The accumulation could be done entirely in volatile RAM.  However, if
+    we did that then a power cycle or restart for any reason would cause all weather history to be lost.  To avoid this, the device will persist the
+    historical weather data in a local file each time it is updated (once a day).

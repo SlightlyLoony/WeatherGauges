@@ -10,6 +10,8 @@ import com.dilatush.weathergauges.WeatherRecord;
 public class OpenWeatherMapProvider extends AProvider implements WeatherProvider {
 
 
+
+
     /**
      * Call this method periodically (by convention, once per minute) to allow the provider to update its data.  The provider uses this method to
      * update its database of historical data, current conditions data, and forecast data.
