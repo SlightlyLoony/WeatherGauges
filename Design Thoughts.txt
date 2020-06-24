@@ -45,7 +45,10 @@ Provisioning
                 would cause the Raspberry Pi to come back up as a hotspot, ready for provisioning.  This would allow an end user to start over, as if
                 he had just received our device.  This would be essential to handle things like router replacement, moving to a new home, etc.
 
-    Taken together, the elements about will allow both initial provisioning and ongoing provisioning.
+            Note that the pair of SPST switches used for changing which data is being displayed could substitute for this SPST switch, by doing the
+            same thing when BOTH are simultaneously pressed.
+
+    Taken together, the elements above will allow both initial provisioning and ongoing provisioning.
 
 
 Weather Gauges program startup and fault handling
@@ -62,7 +65,8 @@ Weather Gauges program startup and fault handling
 
 Device serial
 
-    It would be useful, I think, for each device to have a serial number.  The obvious device-unique number would be the MAC address.
+    It would be useful, I think, for each device to have a serial number.  The obvious device-unique number would be the MAC address.  On a Raspberry
+    Pi, the command "ifconfig wlan0" returns information about the WiFi interface, including the MAC.
 
 
 Software updating
@@ -77,7 +81,7 @@ Software updating
     Once triggered to do an update, our device would download the new version, unzip it into a staging directory, set a flag (0 byte file) to mark
     the need for an update, and then exit.  When systemd restarted the service, the flag would be detected, the new software copied to the software
     directory, and then the system restarted.  If any file formats were changed, there must be a mechanism in the Weather Gauges software to detect
-    such a change and perform a file update as part of the startup. This implies that version information is part of every file.
+    such a change and perform a file update as part of the startup. This implies that format version information is part of every file.
 
 
 Phoning home
@@ -95,3 +99,11 @@ Phoning home
     2.  Should we do this?  I don't believe we should do this without our end user's agreement, which implies that the question of phoning home
         should be part of the provisioning process.  My inclination is to turn it on by default, but make it easy and obvious for those users who
         want to opt out.
+
+
+Weather history persistence
+
+    The Weather Gauges device will not query weather history from the web weather APIs; instead it will accumulate it as it reads current weather
+    conditions.  How many days of history will be accumulated is configurable.  The accumulation could be done entirely in volatile RAM.  However, if
+    we did that then a power cycle or restart for any reason would cause all weather history to be lost.  To avoid this, the device will persist the
+    historical weather data in a local file each time it is updated (once a day).
