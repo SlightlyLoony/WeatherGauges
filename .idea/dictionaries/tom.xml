@@ -2,6 +2,10 @@
   <dictionary name="tom">
     <words>
       <w>forecasted</w>
+      <w>provisionings</w>
+      <w>raspbian</w>
+      <w>reprovision</w>
+      <w>unprovisioned</w>
     </words>
   </dictionary>
 </component>
