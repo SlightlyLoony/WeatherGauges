@@ -1,0 +1,6 @@
+Important Information About Weather Gauges
+
+Raspberry Pi OS versions supported: Buster
+
+Linux user that Weather Gauges software runs under: weathergauges
+Default password for user weathergauges: WeatherGauges2020OhMy!
