@@ -160,3 +160,16 @@ ensureHostName "${OUR_PASSWORD}"
 
 # make sure we have our app's user...
 ensureUser "${OUR_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
+
+
+# GENERAL STRATEGY
+# Setup is run from deployment machine.  That machine first copies a tree of files to the pi user's home directory (scp), including this (setup1)
+# script.  It then SSHs into the target machine as user pi, and executes this script.  This script does a bunch of things, including making the
+# weathergauges user.  When this script exits, assuming it was successful, the deployment machine SSHs into the target machine as user weathergauges,
+# and completes the setup process.
+
+# PARTS REMAINING TO BE WRITTEN
+# change permissions on files as needed (pi and weathergauges)
+# copy files, with owner, group, permissions correct
+# make weathergauges group
+# create app directory structure
