@@ -110,17 +110,20 @@ ensureUser() {
   exec 2>/dev/null;            # redirect sdterr to /dev/null to suppress output here...
 
   # see whether we already have this user...
-  id -u "${USER}"
-  if [[ $? == 0 ]]
+  # the " || 0" below keeps set -e from aborting the script...
+  local RC; RC=$(id -u ${USER}) || 0  # exit code is UID, or 0 if user doesn't exist...
+  if (( RC != 0 ))
   then
     STATUS="User ${USER} has already been created"
   else
 
-    # first we try creating the user with his password...
-    echo "${PWD}" | passwd "${USER}" --stdin
+    # the user doesn't exist, so we create it...
+    useradd --base-dir /home --user-group --create-home "${USER}"
+    # the " || 0" below keeps set -e from aborting the script...
+    RC=$(echo "${PWD}" | passwd "${USER}" --stdin) || 0
 
     # did we succeed?
-    if [[ $? == 0 ]]
+    if (( RC == 0 ))
     then
       STATUS="User ${USER} was created, with password ${PWD}"
     else
@@ -160,3 +163,6 @@ ensureHostName "${OUR_PASSWORD}"
 
 # make sure we have our app's user...
 ensureUser "${OUR_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
+
+# exit cleanly, with no error...
+exit 0
