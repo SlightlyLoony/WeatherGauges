@@ -12,6 +12,8 @@ set -euo pipefail
 # Fixed Parameters #
 ####################
 
+DEFAULT_USER="pi"
+DEFAULT_PASSWORD="raspberry"
 WEATHERGAUGES_HOSTNAME="weathergauges"  # hostname for "as shipped" Weather Gauges device; user may change...
 APP_USER="weathergauges"                # user name that Weather Gauges runs under; user may NOT change...
 APP_PASSWORD="WeatherGauges2020OhMy!"   # default password for "weathergauges" user; user may change, device reset restores...
@@ -22,17 +24,25 @@ APP_PASSWORD="WeatherGauges2020OhMy!"   # default password for "weathergauges" u
 #########################
 
 
+# Execute the command in $1 but suppress stdout and stderr, returning the exit code
+quiet() {
+  $1 >/dev/null 2>/dev/null
+  return $?
+}
+
+
 # Authenticate to sudo, either by new authentication or by extending active sudo credentials.  There is no output.
 # $1 is the default user's password
 sudoAuth() {
-  PWD=$1
-  exec 6>&1;                   # save stdout to file descriptor 6...
-  exec 7>&2;                   # save stderr to file descriptor 7...
-  exec 1>/dev/null;            # redirect sdtout to /dev/null to suppress output here...
-  exec 2>/dev/null;            # redirect sdterr to /dev/null to suppress output here...
-  echo "${PWD}" | sudo -S -v;  # attempt to extend sudo credentials; logging in if necessary...
-  exec 1>&6 6>&-               # restore stdout and close file descriptor 6...
-  exec 2>&7 7>&-               # restore stderr and close file descriptor 7...
+  echo "$1" | sudo -S -v >/dev/null 2>/dev/null
+}
+
+
+# Echoes the exit code of the command in $1 (to stdout), suppressing any output to stdout or stderr from the command itself.
+# This is done in a manner safe when running with set -e.
+getExitCode() {
+  quiet "$1" && true
+  echo $?
 }
 
 
@@ -48,14 +58,7 @@ osName() {
   #       Architecture: arm
   # sed selects only lines containing "Operating System", then replaces the entire line with just what was inside parentheses and prints the results
   # tr converts any uppercase characters into lowercase
-  hostnamectl | sed -n '/Operating System/ s/.*(\(.*\)).*/\1/ p' | tr [:upper:] [:lower:]
-}
-
-
-# Outputs the default password for our default user ("raspberry" on all versions "buster" and before, but may change).
-# $1 is our operating system name
-osPassword() {
-  echo "raspberry"
+  hostnamectl | sed -n '/Operating System/ s/.*(\(.*\)).*/\1/ p' | tr "[:upper:]" "[:lower:]"
 }
 
 
@@ -67,8 +70,7 @@ hostName() {
 
 # Sets the hostname to $1
 changeHostName() {
-  NEW_HOSTNAME=$1
-  sudo hostnamectl set-hostname "${NEW_HOSTNAME}"
+  sudo hostnamectl set-hostname "$1"
 }
 
 
@@ -97,54 +99,71 @@ ensureHostName() {
 # $2 is the user to ensure
 # $3 is that user's default password
 ensureUser() {
-  USER=$2
-  PWD=$3
-  STATUS=""
-  BAIL=false
+  local USER; USER=$2
+  local PWD; PWD=$3
   sudoAuth $1        # authenticate to sudo...
 
-  # suppress extraneous output...
-  exec 6>&1;                   # save stdout to file descriptor 6...
-  exec 7>&2;                   # save stderr to file descriptor 7...
-  exec 1>/dev/null;            # redirect sdtout to /dev/null to suppress output here...
-  exec 2>/dev/null;            # redirect sdterr to /dev/null to suppress output here...
-
-  # see whether we already have this user...
-  # the " || 0" below keeps set -e from aborting the script...
-  local RC; RC=$(id -u ${USER}) || 0  # exit code is UID, or 0 if user doesn't exist...
-  if (( RC != 0 ))
+  # see whether we already have this user, and if not, create it...
+  # returned exit code is 0 if user exists
+  local RC; RC=$(getExitCode "id -u ${USER}")
+  if (( RC == 0 ))
   then
-    STATUS="User ${USER} has already been created"
+    echo "User ${USER} already exists"
   else
 
     # the user doesn't exist, so we create it...
-    useradd --base-dir /home --user-group --create-home "${USER}"
-    # the " || 0" below keeps set -e from aborting the script...
-    RC=$(echo "${PWD}" | passwd "${USER}" --stdin) || 0
+    RC=$(getExitCode "sudo useradd --base-dir /home --user-group --create-home ${USER}")
 
     # did we succeed?
     if (( RC == 0 ))
     then
-      STATUS="User ${USER} was created, with password ${PWD}"
+
+      echo "Created user ${USER}"
     else
-      STATUS="Failed to create ${USER}"
-      BAIL=true
+
+      # alarm the user, and indicate that we're bailing from the script...
+      echo "Failed to create ${USER}"
+      exit 1
     fi
   fi
 
-  # restore normal output...
-  exec 1>&6 6>&-               # restore stdout and close file descriptor 6...
-  exec 2>&7 7>&-               # restore stderr and close file descriptor 7...
+  # change the user's password to the desired one...
+  RC=$(echo ${USER}:${PWD} | sudo chpasswd >/dev/null 2>/dev/null && true; echo $?)
 
-  # print our status...
-  echo "${STATUS}"
-
-  # if we had a problem, time to bail out...
-  if [[ "${BAIL}" == true ]]
+  # did we succeed?
+  if (( RC == 0 ))
   then
-    exit 1;
+
+    # verify that the password is usable...
+    # this returns L for locked, P for usable password, or NP for no password
+    local PS; PS=$(sudo passwd --status weathergauges | sed --quiet --regexp-extended  's/\w*\s*(\w*)\s*.*/\1/p')
+    if [[ $PS == "P" ]]
+    then
+      echo "User ${USER} now has the usable password ${PWD}"
+    else
+      echo "Password change command succeeded, but the password for ${USER} is not usable"
+    fi
+  else
+    echo "Failed to change password for ${USER}"
+    exit 1
   fi
 }
+
+
+# copy files and set owner, group, and mode, with optional recursion
+# $1 is directory copying from
+# $2 is directory copying to
+# $3 is file specification (globbing allowed)
+# $4 is owner
+# $5 is group
+# $6 is mode
+# $7 is true for recursion
+xcp() {
+
+  # first the actual copy...
+  cp 
+}
+
 
 
 ###############
@@ -155,14 +174,11 @@ ensureUser() {
 OUR_OS=$(osName)
 echo "Setting up on Raspberry Pi OS ${OUR_OS^}"
 
-# Now we set our password, which is the default Raspberry Pi OS' default password...
-OUR_PASSWORD=$(osPassword OUR_OS)
-
 # make sure we have the officially sanctioned hostname...
-ensureHostName "${OUR_PASSWORD}"
+ensureHostName "${DEFAULT_PASSWORD}"
 
 # make sure we have our app's user...
-ensureUser "${OUR_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
+ensureUser "${DEFAULT_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
 
 # exit cleanly, with no error...
 exit 0
