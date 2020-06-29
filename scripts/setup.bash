@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# Error and exit on (most) non-zero exit codes, expanding unset variables, and non-zero pipe exit codes
 set -euo pipefail
 
 # Set up a Raspberry Pi for Weather Gauges.
@@ -22,17 +24,24 @@ APP_PASSWORD="WeatherGauges2020OhMy!"   # default password for "weathergauges" u
 #########################
 
 
+# Execute the command in $1 but suppress stdout and stderr
+quiet() {
+  $1 >/dev/null 2>/dev/null
+}
+
+
 # Authenticate to sudo, either by new authentication or by extending active sudo credentials.  There is no output.
 # $1 is the default user's password
 sudoAuth() {
-  PWD=$1
-  exec 6>&1;                   # save stdout to file descriptor 6...
-  exec 7>&2;                   # save stderr to file descriptor 7...
-  exec 1>/dev/null;            # redirect sdtout to /dev/null to suppress output here...
-  exec 2>/dev/null;            # redirect sdterr to /dev/null to suppress output here...
-  echo "${PWD}" | sudo -S -v;  # attempt to extend sudo credentials; logging in if necessary...
-  exec 1>&6 6>&-               # restore stdout and close file descriptor 6...
-  exec 2>&7 7>&-               # restore stderr and close file descriptor 7...
+  echo "$1" | quiet "sudo -S -v"
+}
+
+
+# Echoes the exit code of the command in $1 (to stdout), suppressing any output to stdout or stderr from the command itself.
+# This is done in a manner safe when running with set -e.
+getExitCode() {
+  $1 >/dev/null 2>/dev/null && true
+  echo $?
 }
 
 
