@@ -107,3 +107,18 @@ Weather history persistence
     conditions.  How many days of history will be accumulated is configurable.  The accumulation could be done entirely in volatile RAM.  However, if
     we did that then a power cycle or restart for any reason would cause all weather history to be lost.  To avoid this, the device will persist the
     historical weather data in a local file each time it is updated (once a day).
+
+
+Making a "fresh" Raspberry Pi enable SSH
+
+    By default, Raspberry Pis come alive with SSH disabled.  To change this behavior is very simple: in the root of the boot volume, place a file
+    named "ssh" (no extension, contents are irrelevant).  I did this by simply copying the file "fixupcd.dat", which is 3kb long.
+
+
+Security on SSH
+
+    For convenience in scripts, SSH private keys can't be beat.  There's no reason I can think of why we shouldn't have a key pair with the public
+    key installed in the image that we clone to make SD RAM cards for new Raspberry Pis.  This file can be installed by using a USB SD card reader
+    plugged into any Raspberry Pi.  Insert the SD RAM card with the downloaded image into that reader, then simply copy the public key into the
+    /home/pi/.ssh directory, and set the owner and mode appropriately.  I can't think of any reason why I shouldn't use my own key pair, so that's
+    what it will be.  After unmounting the SD RAM card, we've got a ready-to-go image, enabled for SSH key access.

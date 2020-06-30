@@ -1,0 +1,31 @@
+Create Raspberry Pi Image
+
+This documents details the process for creating a Raspberry Pi operating system image (on an SD RAM card) ready for insertion in a fresh Raspberry Pi:
+
+1.  Mount a 32GB SD RAM card in the development system (Mac).
+
+2.  Use the Raspberry Pi Imager application (in Applications) to download and install the latest operating system image.  Choose the minimal
+    configuration that includes the desktop, and the SD RAM card you mounted.  This will create an SD RAM card image with an OS bootable on the
+    Raspberry Pi.
+
+3.  The Raspberry Pi Imager finishes by unmounting the SD RAM card.  Physically remove the SD RAM card and reinsert it to force it to mount.
+
+4.  That SD RAM card will have a partition named "boot".  In the root of that partition, copy the file "issue.txt" (or any other small file) to a
+    new file named "ssh", with no extension.  The contents of this file are irrelevant.  This triggers the Raspberry Pi OS to enable SSH on boot.
+
+5.  Eject the SD RAM card.
+
+6.  Mount the SD RAM card on any development Linux system.
+
+7.  Log into the development system as the user "pi".
+
+8.  Create the /home/pi/.ssh directory, with mode 700:
+        cd /<mount>/home/pi   # where <mount> is the mounted volume's path
+        mkdir -m 700 .ssh
+        ls -al                # to verify
+
+9.  Copy Tom's public key (/Users/tom/.ssh/id_rsa.pub) to the just-created .ssh directory as the new authorized_keys file.  If the development system
+    has the public key, copy from /home/pi/.ssh/authorized_keys to /<mount>/home/pi/.ssh - otherwise, use scp to get it from Tom's development system.
+    Use ls -al to verify that the authorized_keys file has mode 644.
+
+10. Unmount the now-configured SD RAM card - you're done.
