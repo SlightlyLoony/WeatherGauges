@@ -28,4 +28,9 @@ This documents details the process for creating a Raspberry Pi operating system 
     has the public key, copy from /home/pi/.ssh/authorized_keys to /<mount>/home/pi/.ssh - otherwise, use scp to get it from Tom's development system.
     Use ls -al to verify that the authorized_keys file has mode 644.
 
-10. Unmount the now-configured SD RAM card - you're done.
+10. Create the file /ImageID with the contents "Weather Gauges 1" on a single line.  The file should have mode 644.  Note that the trailing "1" is
+    intended as a version number.  If the image changes in some way in the future (say, a new OS version) that would affect the deployment script,
+    then the version number can let the script make allowances.
+
+11. Unmount the now-configured SD RAM card - you're done.  Clone the card to create the master image.  See:
+        https://medium.com/@ccarnino/backup-raspberry-pi-sd-card-on-macos-the-2019-simple-way-to-clone-1517af972ca5
