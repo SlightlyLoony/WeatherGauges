@@ -2,12 +2,15 @@
   <dictionary name="tom">
     <words>
       <w>forecasted</w>
+      <w>heredoc</w>
       <w>imager</w>
       <w>provisionings</w>
       <w>raspbian</w>
       <w>reprovision</w>
+      <w>tricksy</w>
       <w>unmounting</w>
       <w>unprovisioned</w>
+      <w>weathergauges</w>
     </words>
   </dictionary>
 </component>
