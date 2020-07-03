@@ -1,3 +1,8 @@
 # WeatherGauges
 Application to display local weather information on a local website in gauges
-Change test
+
+[.lead]
+This is a test.
+
+NOTE: this __is__ a note
+
