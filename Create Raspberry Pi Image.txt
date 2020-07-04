@@ -34,3 +34,20 @@ This documents details the process for creating a Raspberry Pi operating system 
 
 11. Unmount the now-configured SD RAM card - you're done.  Clone the card to create the master image.  See:
         https://medium.com/@ccarnino/backup-raspberry-pi-sd-card-on-macos-the-2019-simple-way-to-clone-1517af972ca5
+
+
+sudo fdisk -l   # look for this:
+                #-------------------
+                # Disk /dev/sde: 29.8 GiB, 32010928128 bytes, 62521344 sectors
+                # Units: sectors of 1 * 512 = 512 bytes
+                # Sector size (logical/physical): 512 bytes / 512 bytes
+                # I/O size (minimum/optimal): 512 bytes / 512 bytes
+                # Disklabel type: dos
+                # Disk identifier: 0x9fb1957f
+                #
+                # Device     Boot  Start     End Sectors  Size Id Type
+                # /dev/sde1         8192  532479  524288  256M  c W95 FAT32 (LBA)
+                # /dev/sde2       532480 7479295 6946816  3.3G 83 Linux
+                #-------------------
+                # the /dev/sde2 is my device!
+sudo mount /dev/sde2 /media    # root directory of SD card appears in /media

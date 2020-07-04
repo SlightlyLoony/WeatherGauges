@@ -150,20 +150,72 @@ ensureUser() {
 }
 
 
-# copy files and set owner, group, and mode, with optional recursion
-# $1 is directory copying from
-# $2 is directory copying to
-# $3 is file specification (globbing allowed)
-# $4 is owner
-# $5 is group
-# $6 is mode
-# $7 is true for recursion
-xcp() {
+# Update the Linux OS and upgrade installed packages.  Returns 0 if everything worked correctly, or an error code if one of the commands
+# failed.  If any commands fail, the commands following the failed command will not be executed.  Progress messages are output, but the stdout output
+# of the apt-get commands is stored in /home/pi/apt.stdout, and the stderr output in /home/pi/apt.stderr.
+# $1 is the default password.
+updateOS() {
 
-  # first the actual copy...
-  cp
+  # warn the user that we've got a slow thing happening...
+  echo "Running APT update/upgrade/autoremove - may take a while..."
+
+  # download current package information...
+  sudoAuth $1
+  sudo apt-get --yes --quiet update >/home/pi/apt.stdout 2>/home/pi/apt.stderr && true;
+  EC=$?
+  if (( EC != 0 ))  # exit immediately if there was a problem...
+  then
+    echo "Updating APT packages failed (see apt.stdout and apt.stderr for details)..."
+    return $EC
+  fi
+  echo "APT packages updated..."
+
+  # install upgrades of already-installed packages...
+  sudoAuth $1
+  sudo apt-get --yes --quiet --with-new-pkgs upgrade >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
+  EC=$?
+  if (( EC != 0 ))  # exit immediately if there was a problem...
+  then
+    echo "Upgrading APT packages failed (see apt.stdout and apt.stderr for details)..."
+    return $EC
+  fi
+  echo "APT packages upgraded..."
+
+  # remove no-longer needed packages...
+  sudoAuth $1
+  sudo apt-get --yes --quiet autoremove >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
+  EC=$?
+  if (( EC != 0 ))  # exit immediately if there was a problem...
+  then
+    echo "Automatically removing unused APT packages failed (see apt.stdout and apt.stderr for details)..."
+    return $EC
+  fi
+  echo "Unused APT packages automatically removed..."
+  return 0
 }
 
+
+# Add app user to sudoers with NOPASSWD.
+# $1 is the default password
+# $2 is the app user
+tweakSudoers() {
+set -x
+  # make sure we're allowed...
+  sudoAuth $1
+
+  # if there's an entry already for the app user, skip this...
+  AC=$( sudo cat /etc/sudoers | grep -c $2 && true ) && true
+  if (( AC != 0 ))
+  then
+    return 0
+  fi
+
+  # add our magic line...
+  echo "needs it"
+}
+
+# add weathergauges to SUDO for no password
+# validate that time synchronization is running
 
 
 ###############
@@ -179,6 +231,12 @@ ensureHostName "${DEFAULT_PASSWORD}"
 
 # make sure we have our app's user...
 ensureUser "${DEFAULT_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
+
+# update the operating system and installed apps...
+updateOS "${DEFAULT_PASSWORD}"
+
+# update to sudoers file so that the app user needs no password for sudo...
+tweakSudoers "${DEFAULT_PASSWORD}" "${APP_USER}"
 
 # exit cleanly, with no error...
 exit 0

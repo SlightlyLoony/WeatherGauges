@@ -1,8 +1,17 @@
-# WeatherGauges
+= WeatherGauges
+
+== heading
+
 Application to display local weather information on a local website in gauges
 
 [.lead]
 This is a test.
 
 NOTE: this __is__ a note
+
+`{java}` is java
+
+`+x += 33`
+
+
 

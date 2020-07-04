@@ -42,7 +42,7 @@ showUsage() {
 # SSH as the given remote user to the given remote host, executing the commands from stdin.  The remote user MUST have his SSH public key installed
 # on the remote host, and his SSH private key MUST be installed on the deployment machine for the user running this script.  The exit code is 255 if
 # SSH couldn't connect and log in to the remote host, otherwise is the exit code of the last command executed on the host.  With set -e non-zero exit
-# codes will still be returned and the script will not terminate.  All output from stderr is suppressed.
+# codes will still be returned and the script will not terminate.  All output from stderr goes to ./deploy.error.
 #
 # Parameters:
 #    $1 is the remote user
@@ -76,7 +76,7 @@ showUsage() {
 _ssh() {
   local SSH
   read -r -d '' SSH
-  ssh -q -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2" "$SSH" 2>/dev/null
+  ssh -q -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2" "$SSH" 2>./deploy.error
 }
 
 
@@ -158,10 +158,6 @@ then
 fi
 
 # attempt to read the image ID from the target host, and verify that it's the correct one...
-#OUT=$( _ssh "${DEFAULT_USER}" "${HOST}"<< SSH
-#  cat "${IMAGE_ID_PATH}"
-#SSH
-#) && true; EC=$?  # OUT has the file contents...
 OUT=$( echo "cat /${IMAGE_ID_PATH}" | _ssh "${DEFAULT_USER}" "${HOST}" ) && true; EC=$?
 if (( EC == 0 ))  # if we connected, logged in, and read the file...
 then
@@ -194,3 +190,13 @@ _mkdir /home/pi/deploy/weathergauges
 # copy files to the deployment directories...
 echo "Copying deployment files..."
 _scp_to scripts/target/pi/* /home/pi/deploy/pi
+
+# execute the phase 1 setup file on the target...
+echo "Running phase 1 setup on ${HOST}..."
+echo "bash deploy/pi/setup.bash" | _ssh "${DEFAULT_USER}" "${HOST}" && true; EC=$?
+if (( EC != 0 ))
+then
+  cat ./deploy.error
+  echo "Fatal error in phase 1 setup, aborting..."
+  exit $EC
+fi
