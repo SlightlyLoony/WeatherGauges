@@ -15,39 +15,60 @@ This documents details the process for creating a Raspberry Pi operating system 
 
 5.  Eject the SD RAM card.
 
-6.  Mount the SD RAM card on any development Linux system.
+6.  Log into the development system as its normal user (<user>).
 
-7.  Log into the development system as the user "pi".
+7.  Mount the SD RAM card on any development Linux system.  First identify the device:
 
-8.  Create the /home/pi/.ssh directory, with mode 700:
-        cd /<mount>/home/pi   # where <mount> is the mounted volume's path
-        mkdir -m 700 .ssh
-        ls -al                # to verify
+            sudo fdisk -l   # look for this:
+                            #-------------------
+                            # Disk /dev/sde: 29.8 GiB, 32010928128 bytes, 62521344 sectors
+                            # Units: sectors of 1 * 512 = 512 bytes
+                            # Sector size (logical/physical): 512 bytes / 512 bytes
+                            # I/O size (minimum/optimal): 512 bytes / 512 bytes
+                            # Disklabel type: dos
+                            # Disk identifier: 0x9fb1957f
+                            #
+                            # Device     Boot  Start     End Sectors  Size Id Type
+                            # /dev/sde1         8192  532479  524288  256M  c W95 FAT32 (LBA)
+                            # /dev/sde2       532480 7479295 6946816  3.3G 83 Linux
+                            #-------------------
+                            # the /dev/sde2 is my device!
 
-9.  Copy Tom's public key (/Users/tom/.ssh/id_rsa.pub) to the just-created .ssh directory as the new authorized_keys file.  If the development system
-    has the public key, copy from /home/pi/.ssh/authorized_keys to /<mount>/home/pi/.ssh - otherwise, use scp to get it from Tom's development system.
-    Use ls -al to verify that the authorized_keys file has mode 644.
+        Then mount the device at /media:
+
+            sudo mount /dev/sde2 /media    # root directory of SD card appears in /media
+
+8.  Create the /home/pi/.ssh directory, with mode 700 and owner pi.  First find the UID/GID for pi:
+
+            ls -lan /media/home/pi  # lists mode, number of links, UID, GID, size
+
+        Then
+
+            sudo mkdir /media/home/pi/.ssh             # creates the directory but with root as the owner and group...
+            sudo chown 1000:1000 /media/home/pi/.ssh   # changes the UID and GID (1000:1000 in this case)...
+            sudo chmod 700 /media/home/pi/.ssh         # changes the mode to 700
+
+9.  Copy Tom's public key (/home/tom/.ssh/id_rsa.pub) to the just-created .ssh directory as the new authorized_keys file AND as the new id_rsa.pub
+    file, with the correct owner (pi UID/GID) and mode (644).
+
+            sudo cp /home/tom/.ssh/id_rsa.pub /media/home/pi/.ssh                   # copy the existing public key file...
+            sudo cp /home/tom/.ssh/id_rsa.pub /media/home/pi/.ssh/authorized_keys   # and again...
+            sudo chown 1000:1000 /media/home/pi/.ssh/authorized_keys                # change owners...
+            sudo chown 1000:1000 /media/home/pi/.ssh/id_rsa.pub                     # and again...
 
 10. Create the file /ImageID with the contents "Weather Gauges 1" on a single line.  The file should have mode 644.  Note that the trailing "1" is
     intended as a version number.  If the image changes in some way in the future (say, a new OS version) that would affect the deployment script,
     then the version number can let the script make allowances.
 
-11. Unmount the now-configured SD RAM card - you're done.  Clone the card to create the master image.  See:
-        https://medium.com/@ccarnino/backup-raspberry-pi-sd-card-on-macos-the-2019-simple-way-to-clone-1517af972ca5
+            sudo nano /media/ImageID
+
+11. Unmount the now-configured SD RAM card - you're done!
+
+            sudo umount /media
+
+12. Clone the card to create the master image, using Disk Utility.  Change the name of the resulting file to <something>.iso.  See:
+    https://medium.com/@ccarnino/backup-raspberry-pi-sd-card-on-macos-the-2019-simple-way-to-clone-1517af972ca5
+
+13. Clone the image to any number of SD cards using the balenaEtcher app.
 
 
-sudo fdisk -l   # look for this:
-                #-------------------
-                # Disk /dev/sde: 29.8 GiB, 32010928128 bytes, 62521344 sectors
-                # Units: sectors of 1 * 512 = 512 bytes
-                # Sector size (logical/physical): 512 bytes / 512 bytes
-                # I/O size (minimum/optimal): 512 bytes / 512 bytes
-                # Disklabel type: dos
-                # Disk identifier: 0x9fb1957f
-                #
-                # Device     Boot  Start     End Sectors  Size Id Type
-                # /dev/sde1         8192  532479  524288  256M  c W95 FAT32 (LBA)
-                # /dev/sde2       532480 7479295 6946816  3.3G 83 Linux
-                #-------------------
-                # the /dev/sde2 is my device!
-sudo mount /dev/sde2 /media    # root directory of SD card appears in /media

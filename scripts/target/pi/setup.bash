@@ -211,7 +211,8 @@ set -x
   fi
 
   # add our magic line...
-  echo "needs it"
+  echo "Adding ${APP_USER} to sudoers file as no password"
+  echo "${APP_USER} ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo >/dev/null
 }
 
 # add weathergauges to SUDO for no password
