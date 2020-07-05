@@ -46,6 +46,13 @@ getExitCode() {
 }
 
 
+# Echos the number of seconds since the given file was last modified.
+# $1 is the path to the file
+modifiedSecondsAgo() {
+  echo $(( "$(date +%s)" - "$(date -r apt.test +%s)" ))
+}
+
+
 # Outputs the name (in all lower case) of the Raspberry Pi operating system (Jessie, Stretch, Buster, etc.).
 osName() {
   # hostnamectl output looks something like this:
@@ -64,7 +71,7 @@ osName() {
 
 # Outputs the host name for this machine.
 hostName() {
-  echo "$(hostname)"
+  hostname
 }
 
 
@@ -77,7 +84,7 @@ changeHostName() {
 # Ensures the hostname has been set to the proper value.  Outputs status messages only.
 # $1 is the default user's password
 ensureHostName() {
-  sudoAuth $1  # authenticate to sudo...
+  sudoAuth "$1"  # authenticate to sudo...
   if [[ $(hostName) != "$WEATHERGAUGES_HOSTNAME" ]]
   then
     changeHostName ${WEATHERGAUGES_HOSTNAME}
@@ -101,7 +108,7 @@ ensureHostName() {
 ensureUser() {
   local USER; USER=$2
   local PWD; PWD=$3
-  sudoAuth $1        # authenticate to sudo...
+  sudoAuth "$1"        # authenticate to sudo...
 
   # see whether we already have this user, and if not, create it...
   # returned exit code is 0 if user exists
@@ -128,7 +135,7 @@ ensureUser() {
   fi
 
   # change the user's password to the desired one...
-  RC=$(echo ${USER}:${PWD} | sudo chpasswd >/dev/null 2>/dev/null && true; echo $?)
+  RC=$(echo "${USER}":"${PWD}" | sudo chpasswd >/dev/null 2>/dev/null && true; echo $?)
 
   # did we succeed?
   if (( RC == 0 ))
@@ -147,6 +154,29 @@ ensureUser() {
     echo "Failed to change password for ${USER}"
     exit 1
   fi
+
+  # set up public SSH keys in app user...
+
+  # save UID and GID of our new user...
+  local APP_USER_UID
+  local APP_USER_GID
+  APP_USER_UID=$(grep "${USER}" /etc/passwd | sed -n 's/[^:]*:[^:]*:\([^:]*\).*/\1/p')
+  APP_USER_GID=$(grep "${USER}" /etc/passwd | sed -n 's/[^:]*:[^:]*:[^:]*:\([^:]*\).*/\1/p')
+
+  # setup .ssh directory for app user...
+  sudoAuth "$1"        # authenticate to sudo...
+  if [[ ! -d "/home/${USER}/.ssh" ]]
+  then
+    sudo mkdir "/home/${USER}/.ssh"
+    sudo chown "${APP_USER_UID}":"${APP_USER_GID}" "/home/${USER}/.ssh"
+    sudo chmod 700 "/home/${USER}/.ssh"
+  fi
+
+  # copy authorized_keys and id_rsa.pub over...
+  sudo cp "/home/${DEFAULT_USER}/.ssh/id_rsa.pub" "/home/${USER}/.ssh/id_rsa.pub"
+  sudo cp "/home/${DEFAULT_USER}/.ssh/authorized_keys" "/home/${USER}/.ssh/authorized_keys"
+  sudo chown "${APP_USER_UID}":"${APP_USER_GID}" "/home/${USER}/.ssh/id_rsa.pub"
+  sudo chown "${APP_USER_UID}":"${APP_USER_GID}" "/home/${USER}/.ssh/authorized_keys"
 }
 
 
@@ -156,11 +186,26 @@ ensureUser() {
 # $1 is the default password.
 updateOS() {
 
+  # if we've updated within a day, skip this...
+  local APT_TEST
+  APT_TEST="apt.test"
+  if [[ -f "${APT_TEST}" ]]
+  then
+    local MOD_SECS
+    MOD_SECS=$(modifiedSecondsAgo "${APT_TEST}")
+    if (( MOD_SECS < 86400 ))
+    then
+      echo "Skipping APT update/upgrade/autoremove, as we've done it within the day..."
+      return 0
+    fi
+  fi
+
   # warn the user that we've got a slow thing happening...
   echo "Running APT update/upgrade/autoremove - may take a while..."
 
   # download current package information...
-  sudoAuth $1
+  sudoAuth "$1"
+  # shellcheck disable=SC2024
   sudo apt-get --yes --quiet update >/home/pi/apt.stdout 2>/home/pi/apt.stderr && true;
   EC=$?
   if (( EC != 0 ))  # exit immediately if there was a problem...
@@ -171,7 +216,8 @@ updateOS() {
   echo "APT packages updated..."
 
   # install upgrades of already-installed packages...
-  sudoAuth $1
+  sudoAuth "$1"
+  # shellcheck disable=SC2024
   sudo apt-get --yes --quiet --with-new-pkgs upgrade >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
   if (( EC != 0 ))  # exit immediately if there was a problem...
@@ -182,7 +228,8 @@ updateOS() {
   echo "APT packages upgraded..."
 
   # remove no-longer needed packages...
-  sudoAuth $1
+  sudoAuth "$1"
+  # shellcheck disable=SC2024
   sudo apt-get --yes --quiet autoremove >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
   if (( EC != 0 ))  # exit immediately if there was a problem...
@@ -191,6 +238,7 @@ updateOS() {
     return $EC
   fi
   echo "Unused APT packages automatically removed..."
+  touch "${APT_TEST}"
   return 0
 }
 
@@ -199,12 +247,12 @@ updateOS() {
 # $1 is the default password
 # $2 is the app user
 tweakSudoers() {
-set -x
+
   # make sure we're allowed...
-  sudoAuth $1
+  sudoAuth "$1"
 
   # if there's an entry already for the app user, skip this...
-  AC=$( sudo cat /etc/sudoers | grep -c $2 && true ) && true
+  AC=$( sudo cat /etc/sudoers | grep -c "$2" && true ) && true
   if (( AC != 0 ))
   then
     return 0
@@ -230,7 +278,7 @@ echo "Setting up on Raspberry Pi OS ${OUR_OS^}"
 # make sure we have the officially sanctioned hostname...
 ensureHostName "${DEFAULT_PASSWORD}"
 
-# make sure we have our app's user...
+# make sure we have our app's user, with SSH public key...
 ensureUser "${DEFAULT_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
 
 # update the operating system and installed apps...
