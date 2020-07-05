@@ -263,7 +263,43 @@ tweakSudoers() {
   echo "${APP_USER} ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo >/dev/null
 }
 
-# add weathergauges to SUDO for no password
+
+# Disable password logins to SSH for the given users
+# $1 is the default user password
+# $2..$9 are the users to disable
+disableSSHPasswordLogin() {
+
+  # make sure we're allowed...
+  sudoAuth "$1"
+
+  # if there's already a Match User entry, skip this...
+  AC=$( sudo cat /etc/ssh/sshd_config | grep -c "^Match User " && true ) && true
+  if (( AC != 0 ))
+  then
+    return 0
+  fi
+
+  # build our match user spec...
+  shift 1
+  local THIS_USER
+  local MATCH_SPEC
+  local SEP
+  SEP=" "
+  MATCH_SPEC="Match User"
+  for THIS_USER in "$@"
+  do
+    MATCH_SPEC="${MATCH_SPEC}${SEP}${THIS_USER}"
+    SEP=","
+  done
+  echo "${MATCH_SPEC}"
+
+  # append our lines to sshd_config...
+  echo "${MATCH_SPEC}" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+  echo "PasswordAuthentication no" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+  echo "Match all" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+}
+
+# force HDMI on  https://blog.mivia.dk/solved-hdmi-working-raspberry-pi/
 # validate that time synchronization is running
 
 
@@ -286,6 +322,12 @@ updateOS "${DEFAULT_PASSWORD}"
 
 # update to sudoers file so that the app user needs no password for sudo...
 tweakSudoers "${DEFAULT_PASSWORD}" "${APP_USER}"
+
+# update to sshd_config to disable SSH password login for the default user and the app user...
+disableSSHPasswordLogin  "${DEFAULT_PASSWORD}" "${DEFAULT_USER}" "${APP_USER}"
+
+# bounce the SSH service to enable the above changes...
+sudo service ssh restart
 
 # exit cleanly, with no error...
 exit 0
