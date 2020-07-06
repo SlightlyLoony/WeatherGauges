@@ -82,9 +82,7 @@ changeHostName() {
 
 
 # Ensures the hostname has been set to the proper value.  Outputs status messages only.
-# $1 is the default user's password
 ensureHostName() {
-  sudoAuth "$1"  # authenticate to sudo...
   if [[ $(hostName) != "$WEATHERGAUGES_HOSTNAME" ]]
   then
     changeHostName ${WEATHERGAUGES_HOSTNAME}
@@ -102,13 +100,11 @@ ensureHostName() {
 
 
 # Ensures that the specified user exists.
-# $1 is the default user's password
-# $2 is the user to ensure
-# $3 is that user's default password
+# $1 is the user to ensure
+# $2 is that user's default password
 ensureUser() {
-  local USER; USER=$2
-  local PWD; PWD=$3
-  sudoAuth "$1"        # authenticate to sudo...
+  local USER; USER=$1
+  local PWD; PWD=$2
 
   # see whether we already have this user, and if not, create it...
   # returned exit code is 0 if user exists
@@ -164,7 +160,6 @@ ensureUser() {
   APP_USER_GID=$(grep "${USER}" /etc/passwd | sed -n 's/[^:]*:[^:]*:[^:]*:\([^:]*\).*/\1/p')
 
   # setup .ssh directory for app user...
-  sudoAuth "$1"        # authenticate to sudo...
   if [[ ! -d "/home/${USER}/.ssh" ]]
   then
     sudo mkdir "/home/${USER}/.ssh"
@@ -183,7 +178,6 @@ ensureUser() {
 # Update the Linux OS and upgrade installed packages.  Returns 0 if everything worked correctly, or an error code if one of the commands
 # failed.  If any commands fail, the commands following the failed command will not be executed.  Progress messages are output, but the stdout output
 # of the apt-get commands is stored in /home/pi/apt.stdout, and the stderr output in /home/pi/apt.stderr.
-# $1 is the default password.
 updateOS() {
 
   # if we've updated within a day, skip this...
@@ -204,7 +198,6 @@ updateOS() {
   echo "Running APT update/upgrade/autoremove - may take a while..."
 
   # download current package information...
-  sudoAuth "$1"
   # shellcheck disable=SC2024
   sudo apt-get --yes --quiet update >/home/pi/apt.stdout 2>/home/pi/apt.stderr && true;
   EC=$?
@@ -216,7 +209,6 @@ updateOS() {
   echo "APT packages updated..."
 
   # install upgrades of already-installed packages...
-  sudoAuth "$1"
   # shellcheck disable=SC2024
   sudo apt-get --yes --quiet --with-new-pkgs upgrade >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
@@ -228,7 +220,6 @@ updateOS() {
   echo "APT packages upgraded..."
 
   # remove no-longer needed packages...
-  sudoAuth "$1"
   # shellcheck disable=SC2024
   sudo apt-get --yes --quiet autoremove >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
@@ -244,59 +235,66 @@ updateOS() {
 
 
 # Add app user to sudoers with NOPASSWD.
-# $1 is the default password
-# $2 is the app user
-tweakSudoers() {
+# $1..n are the users to add NOPASSWD lines for
+ensureSudoers() {
 
-  # make sure we're allowed...
-  sudoAuth "$1"
+  local THIS_USER
+  for THIS_USER in "$@"
+  do
 
-  # if there's an entry already for the app user, skip this...
-  AC=$( sudo cat /etc/sudoers | grep -c "$2" && true ) && true
-  if (( AC != 0 ))
-  then
-    return 0
-  fi
+    # if there's an entry already for the app user, don't do it again...
+    AC=$( sudo cat /etc/sudoers | grep -c "${THIS_USER}" && true ) && true
+    if (( AC != 0 ))
+    then
+      echo "The user ${THIS_USER} already has a NOPASSWD line in sudoers..."
+    else
 
-  # add our magic line...
-  echo "Adding ${APP_USER} to sudoers file as no password"
-  echo "${APP_USER} ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo >/dev/null
+      # add our NOPASSWD line...
+      echo "${THIS_USER} ALL=(ALL) NOPASSWD: ALL" | sudo EDITOR='tee -a' visudo >/dev/null
+      echo "Added ${THIS_USER} to sudoers file as NOPASSWD"
+
+    fi
+  done
 }
 
 
 # Disable password logins to SSH for the given users
-# $1 is the default user password
-# $2..$9 are the users to disable
+# $1..n are the users to disable
 disableSSHPasswordLogin() {
 
-  # make sure we're allowed...
-  sudoAuth "$1"
-
-  # if there's already a Match User entry, skip this...
-  AC=$( sudo cat /etc/ssh/sshd_config | grep -c "^Match User " && true ) && true
-  if (( AC != 0 ))
-  then
-    return 0
-  fi
-
-  # build our match user spec...
-  shift 1
-  local THIS_USER
-  local MATCH_SPEC
-  local SEP
-  SEP=" "
-  MATCH_SPEC="Match User"
+  local THIS_USER MATCH_SPEC ADDED_LINES
+  ADDED_LINES=false
   for THIS_USER in "$@"
   do
-    MATCH_SPEC="${MATCH_SPEC}${SEP}${THIS_USER}"
-    SEP=","
-  done
-  echo "${MATCH_SPEC}"
 
-  # append our lines to sshd_config...
-  echo "${MATCH_SPEC}" | sudo tee -a /etc/ssh/sshd_config >/dev/null
-  echo "PasswordAuthentication no" | sudo tee -a /etc/ssh/sshd_config >/dev/null
-  echo "Match all" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+      # build the match specification we expect to see in sshd_config
+      MATCH_SPEC="Match User ${THIS_USER}"
+
+      # does sshd_config already contain this match specification?
+      AC=$( sudo cat /etc/ssh/sshd_config | grep -c "^${MATCH_SPEC}" && true ) && true
+      if (( AC != 0 ))
+      then
+        echo "Password SSH login already disabled for ${THIS_USER}..."
+      else
+        # add the disable password login lines to sshd_config...
+        echo "${MATCH_SPEC}" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+        echo "    PasswordAuthentication no" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+        ADDED_LINES=true
+        echo "Disabled password SSH login for ${THIS_USER}"
+      fi
+
+  done
+
+  # if we've added any lines to sshd_config, add a trailing "Match all" and bounce it...
+  if [[ "${ADDED_LINES}" ]]
+  then
+
+    # add the trailing "Match all"...
+    echo "Match all" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+
+    # bounce the SSH service to enable the above changes...
+    sudo service ssh restart
+  fi
 }
 
 # force HDMI on  https://blog.mivia.dk/solved-hdmi-working-raspberry-pi/
@@ -311,23 +309,21 @@ disableSSHPasswordLogin() {
 OUR_OS=$(osName)
 echo "Setting up on Raspberry Pi OS ${OUR_OS^}"
 
+# update to sudoers file so that the app user needs no password for sudo...
+sudoAuth "${DEFAULT_PASSWORD}"
+ensureSudoers "${DEFAULT_USER}" "${APP_USER}"
+
 # make sure we have the officially sanctioned hostname...
-ensureHostName "${DEFAULT_PASSWORD}"
+ensureHostName
 
 # make sure we have our app's user, with SSH public key...
-ensureUser "${DEFAULT_PASSWORD}" "${APP_USER}" "${APP_PASSWORD}"
+ensureUser "${APP_USER}" "${APP_PASSWORD}"
 
 # update the operating system and installed apps...
-updateOS "${DEFAULT_PASSWORD}"
-
-# update to sudoers file so that the app user needs no password for sudo...
-tweakSudoers "${DEFAULT_PASSWORD}" "${APP_USER}"
+updateOS
 
 # update to sshd_config to disable SSH password login for the default user and the app user...
-disableSSHPasswordLogin  "${DEFAULT_PASSWORD}" "${DEFAULT_USER}" "${APP_USER}"
-
-# bounce the SSH service to enable the above changes...
-sudo service ssh restart
+disableSSHPasswordLogin  "${DEFAULT_USER}" "${APP_USER}"
 
 # exit cleanly, with no error...
 exit 0

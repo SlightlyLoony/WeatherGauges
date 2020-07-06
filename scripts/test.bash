@@ -1,18 +1,27 @@
-# $1 is remote user
-# $2 is remote host
-# $3 is local source path (globbable)
-# $4 is remote destination path
-_scp_to_remote() {
-  scp -q -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$3" "$1"@"$2":"$4" 2>/dev/null
+_ssh() {
+  local SSH
+  read -r -d '' SSH
+  ssh -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2" "$SSH" 2>/dev/null
 }
 
 
-# $1 is remote user
-# $2 is remote host
-# $3 is remote source path (globbable)
-# $4 is local destination path
-_scp_from_remote() {
-  scp -q -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2":"$3" "$4" 2>/dev/null
-}
-
-_scp_to_remote pi weathergauges ../scripts /home/pi
+IMAGE_ID=$(_ssh pi weathergauges << EOF
+  cat /ImageID
+EOF
+); EC=$?
+if (( EC == 0 ))
+then
+  if [[ $IMAGE_ID == "Weather Gauges 1" ]]
+  then
+    echo "We're good!"
+  else
+    echo "Oh, oh - we don't know this image ID: ${IMAGE_ID}"
+  fi
+else
+  if (( EC == 255 ))
+  then
+    echo "Bad things just happened, SSH returned exit code 255 when attempting to get image ID"
+  else
+    echo "Bad things just happened, cat returned exit code ${EC} when attempting to get image ID"
+  fi
+fi
