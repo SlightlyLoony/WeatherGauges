@@ -260,7 +260,7 @@ ensureSudoers() {
 
 # Disable password logins to SSH for the given users
 # $1..n are the users to disable
-disableSSHPasswordLogin() {
+ensureSSHPasswordLoginDisabled() {
 
   local THIS_USER MATCH_SPEC ADDED_LINES
   ADDED_LINES=false
@@ -323,7 +323,7 @@ ensureUser "${APP_USER}" "${APP_PASSWORD}"
 updateOS
 
 # update to sshd_config to disable SSH password login for the default user and the app user...
-disableSSHPasswordLogin  "${DEFAULT_USER}" "${APP_USER}"
+ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 
 # exit cleanly, with no error...
 exit 0
