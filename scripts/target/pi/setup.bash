@@ -297,7 +297,20 @@ ensureSSHPasswordLoginDisabled() {
   fi
 }
 
+
+# Copy deployment files to app user.
+# $1 is app user
+copyAppFiles() {
+  sudo cp --preserve=mode --recursive deploy/"${1}"/* /home/"${1}"
+  sudo chown "${1}:${1}" "/home/${1}"
+}
+
+
 # force HDMI on  https://blog.mivia.dk/solved-hdmi-working-raspberry-pi/
+# add ti /etc/xdg/lxsession/LXDE-pi/autostart:
+#    @bash /home/weathergauges/kiosk.bash
+# change default password
+# can I blank the screen while desktop is booting up?
 # validate that time synchronization is running
 
 
@@ -324,6 +337,9 @@ updateOS
 
 # update to sshd_config to disable SSH password login for the default user and the app user...
 ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
+
+# copy application deployment files
+copyAppFiles ${APP_USER}
 
 # exit cleanly, with no error...
 exit 0
