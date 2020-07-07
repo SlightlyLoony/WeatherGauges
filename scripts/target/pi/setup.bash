@@ -238,7 +238,7 @@ updateOS() {
 # $1..n are the users to add NOPASSWD lines for
 ensureSudoers() {
 
-  local THIS_USER
+  local THIS_USER AC
   for THIS_USER in "$@"
   do
 
@@ -306,6 +306,26 @@ copyAppFiles() {
 }
 
 
+# Ensure that the /boot/config.txt file contains the lines that force HDMI output on...
+ensureBootConfig() {
+
+  # have we already configured this file?
+  local AC
+  AC=$( sudo cat /boot/config.txt | grep -c "^hdmi_force_hotplug=1" && true ) && true
+  if (( AC != 0 ))
+  then
+    echo "The boot config file (/boot/config.txt) is already configured to force HDMI on..."
+  else
+
+    # add the HDMI configuration lines...
+    echo "# always force HDMI output and enable HDMI sound" | sudo tee -a /boot/config.txt >/dev/null
+    echo "hdmi_force_hotplug=1" | sudo tee -a /boot/config.txt >/dev/null
+    echo "hdmi_drive=2" | sudo tee -a /boot/config.txt >/dev/null
+    echo "Configured boot config file (/boot/config.txt) to force HDMI on..."
+  fi
+}
+
+
 # force HDMI on  https://blog.mivia.dk/solved-hdmi-working-raspberry-pi/
 # add ti /etc/xdg/lxsession/LXDE-pi/autostart:
 #    @bash /home/weathergauges/kiosk.bash
@@ -340,6 +360,9 @@ ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 
 # copy application deployment files
 copyAppFiles ${APP_USER}
+
+# ensure that the /boot/config.txt file will force HDMI output on...
+ensureBootConfig
 
 # exit cleanly, with no error...
 exit 0
