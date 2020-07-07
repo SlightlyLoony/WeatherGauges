@@ -14,6 +14,7 @@ set -euo pipefail
 
 DEFAULT_USER="pi"
 DEFAULT_PASSWORD="raspberry"
+DEFAULT_NEW_PASSWORD="raspberryPi"
 WEATHERGAUGES_HOSTNAME="weathergauges"  # hostname for "as shipped" Weather Gauges device; user may change...
 APP_USER="weathergauges"                # user name that Weather Gauges runs under; user may NOT change...
 APP_PASSWORD="WeatherGauges2020OhMy!"   # default password for "weathergauges" user; user may change, device reset restores...
@@ -32,9 +33,19 @@ quiet() {
 
 
 # Authenticate to sudo, either by new authentication or by extending active sudo credentials.  There is no output.
+# If the default user currently has sudo rights with NOPASSWD, does nothing.
 # $1 is the default user's password
 sudoAuth() {
-  echo "$1" | sudo -S -v >/dev/null 2>/dev/null
+
+  local COUNT
+  COUNT=$( sudo -l | grep -c NOPASSWD )
+  if (( COUNT > 0 ))
+  then
+    echo "Default user already has sudo NOPASSWD rights..."
+  else
+    echo "$1" | sudo -S -v >/dev/null 2>/dev/null
+    echo "Authenticated default user..."
+  fi
 }
 
 
@@ -99,6 +110,38 @@ ensureHostName() {
 }
 
 
+# Change the given user's password to the given new password.
+# $1 is the user to change
+# $2 is the new password
+changePassword() {
+
+  local RC
+
+  # change the user's password to the desired one...
+  RC=$(echo "${1}":"${2}" | sudo chpasswd >/dev/null 2>/dev/null && true; echo $?)
+
+  # did we succeed?
+  if (( RC == 0 ))
+  then
+
+    # verify that the password is usable...
+    # this returns L for locked, P for usable password, or NP for no password
+    local PS; PS=$(sudo passwd --status "${1}" | sed --quiet --regexp-extended  's/\w*\s*(\w*)\s*.*/\1/p')
+    if [[ $PS == "P" ]]
+    then
+      echo "User ${1} now has the usable password ${2}"
+      return 0
+    else
+      echo "Password change command succeeded, but the password for ${1} is not usable"
+      return 1
+    fi
+  else
+    echo "Failed to change password for ${1}"
+    return 2
+  fi
+}
+
+
 # Ensures that the specified user exists.
 # $1 is the user to ensure
 # $2 is that user's default password
@@ -131,23 +174,10 @@ ensureUser() {
   fi
 
   # change the user's password to the desired one...
-  RC=$(echo "${USER}":"${PWD}" | sudo chpasswd >/dev/null 2>/dev/null && true; echo $?)
-
-  # did we succeed?
-  if (( RC == 0 ))
+  changePassword "${USER}" "${PWD}"
+  RC=$?
+  if (( RC != 0 ))
   then
-
-    # verify that the password is usable...
-    # this returns L for locked, P for usable password, or NP for no password
-    local PS; PS=$(sudo passwd --status weathergauges | sed --quiet --regexp-extended  's/\w*\s*(\w*)\s*.*/\1/p')
-    if [[ $PS == "P" ]]
-    then
-      echo "User ${USER} now has the usable password ${PWD}"
-    else
-      echo "Password change command succeeded, but the password for ${USER} is not usable"
-    fi
-  else
-    echo "Failed to change password for ${USER}"
     exit 1
   fi
 
@@ -180,6 +210,10 @@ ensureUser() {
 # of the apt-get commands is stored in /home/pi/apt.stdout, and the stderr output in /home/pi/apt.stderr.
 updateOS() {
 
+  # delete our apt history files, if they exist...
+  if [[ -f /home/pi/apt.stdout ]]; then rm /home/pi/apt.stdout; fi
+  if [[ -f /home/pi/apt.stderr ]]; then rm /home/pi/apt.stderr; fi
+
   # if we've updated within a day, skip this...
   local APT_TEST
   APT_TEST="apt.test"
@@ -199,7 +233,7 @@ updateOS() {
 
   # download current package information...
   # shellcheck disable=SC2024
-  sudo apt-get --yes --quiet update >/home/pi/apt.stdout 2>/home/pi/apt.stderr && true;
+  sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet update >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
   if (( EC != 0 ))  # exit immediately if there was a problem...
   then
@@ -210,7 +244,7 @@ updateOS() {
 
   # install upgrades of already-installed packages...
   # shellcheck disable=SC2024
-  sudo apt-get --yes --quiet --with-new-pkgs upgrade >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
+  sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet --with-new-pkgs upgrade >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
   if (( EC != 0 ))  # exit immediately if there was a problem...
   then
@@ -221,7 +255,7 @@ updateOS() {
 
   # remove no-longer needed packages...
   # shellcheck disable=SC2024
-  sudo apt-get --yes --quiet autoremove >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
+  sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet autoremove >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
   EC=$?
   if (( EC != 0 ))  # exit immediately if there was a problem...
   then
@@ -301,12 +335,12 @@ ensureSSHPasswordLoginDisabled() {
 # Copy deployment files to app user.
 # $1 is app user
 copyAppFiles() {
-  sudo cp --preserve=mode --recursive deploy/"${1}"/* /home/"${1}"
-  sudo chown "${1}:${1}" "/home/${1}"
+  sudo cp --preserve=mode --recursive deploy/"${1}/."/* /home/"${1}"
+  sudo chown --recursive "${1}:${1}" "/home/${1}"
 }
 
 
-# Ensure that the /boot/config.txt file contains the lines that force HDMI output on...
+# Ensure that the /boot/config.txt file contains the lines that force HDMI output on.
 ensureBootConfig() {
 
   # have we already configured this file?
@@ -326,11 +360,81 @@ ensureBootConfig() {
 }
 
 
-# force HDMI on  https://blog.mivia.dk/solved-hdmi-working-raspberry-pi/
-# add ti /etc/xdg/lxsession/LXDE-pi/autostart:
-#    @bash /home/weathergauges/kiosk.bash
-# change default password
-# can I blank the screen while desktop is booting up?
+# Ensure that the /etc/xdg/lxsession/LXDE-pi/autostart file contains a command to run our kiosk bash script.
+ensureXautostart() {
+
+  # have we already configured this file?
+  local AC
+  AC=$( sudo cat /etc/xdg/lxsession/LXDE-pi/autostart | grep -c "^@bash /home/weathergauges/kiosk.bash" && true ) && true
+  if (( AC != 0 ))
+  then
+    echo "The X Windows autostart file (/etc/xdg/lxsession/LXDE-pi/autostart) is already configured to run the kiosk.bash script..."
+  else
+
+    # add the HDMI configuration lines...
+    echo "@bash /home/weathergauges/kiosk.bash" | sudo tee -a /etc/xdg/lxsession/LXDE-pi/autostart >/dev/null
+    echo "Modified the X Windows autostart file (/etc/xdg/lxsession/LXDE-pi/autostart) to run the kiosk.bash script..."
+  fi
+
+}
+
+
+# Ensure that unclutter is installed (it turns off cursor on kiosk screen).
+ensureUnclutter() {
+
+  # have we already installed this thing?
+  if command -v unclutter
+  then
+    echo "The unclutter package has already been installed..."
+  else
+    echo "Installing unclutter..."
+    local EC
+
+    # shellcheck disable=SC2024
+    sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet install unclutter >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
+    EC=$?
+    if (( EC != 0 ))
+    then
+      echo "Installing unclutter failed (see apt.stdout and apt.stderr for details)..."
+      exit 1
+    fi
+    echo "Installed unclutter..."
+  fi
+}
+
+
+# Check to make sure time synchronization is running.
+checkTimeSync() {
+
+  local COUNT
+  COUNT=$( sudo ps axu | grep -c "[t]imesyncd" )
+  if (( COUNT > 0 ))
+  then
+    echo "Time synchronization is running..."
+  else
+    echo "Time synchronization is NOT running..."
+    exit 1
+  fi
+}
+
+
+# Ensure that we have the en_US.UTF-8 locale...
+ensureLocale() {
+
+  # do we already have the en_US.UTF-8 locale?
+  local COUNT
+  COUNT=$( locale -a | grep -c en_US\.utf8 )
+  if (( COUNT > 0 ))
+  then
+    echo "The locale -a | grep -c en_US\.utf8 has already been generated..."
+  else
+    echo "Generating en_US.UTF-8 locale (this might take a while)..."
+    sudo locale-gen --purge en_US.UTF-8 >/dev/null
+    echo "Finished generating en_US.UTF-8 locale..."
+  fi
+}
+
+
 # validate that time synchronization is running
 
 
@@ -346,11 +450,28 @@ echo "Setting up on Raspberry Pi OS ${OUR_OS^}"
 sudoAuth "${DEFAULT_PASSWORD}"
 ensureSudoers "${DEFAULT_USER}" "${APP_USER}"
 
+# change default user's password, so we don't see annoying messages about still having the default...
+changePassword "${DEFAULT_USER}" "${DEFAULT_NEW_PASSWORD}"
+
 # make sure we have the officially sanctioned hostname...
 ensureHostName
 
 # make sure we have our app's user, with SSH public key...
 ensureUser "${APP_USER}" "${APP_PASSWORD}"
+
+# generate our locale, forcing it to American English...
+ensureLocale
+
+# create a bash profile for the default user and the app user, and load it...
+cp /home/"${DEFAULT_USER}"/deploy/pi/.bash_profile /home/"${DEFAULT_USER}"/.bash_profile
+sudo cp /home/"${DEFAULT_USER}"/deploy/pi/.bash_profile /home/"${APP_USER}"/.bash_profile
+sudo chown "${APP_USER}":"${APP_USER}" /home/"${APP_USER}"/.bash_profile
+# shellcheck disable=SC1090
+source /home/"${DEFAULT_USER}"/.bash_profile
+echo "Set up bash profile for ${DEFAULT_USER} and ${APP_USER}..."
+
+# make sure time synchronization is running...
+checkTimeSync
 
 # update the operating system and installed apps...
 updateOS
@@ -361,8 +482,14 @@ ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 # copy application deployment files
 copyAppFiles ${APP_USER}
 
+# ensure that unclutter is installed...
+ensureUnclutter
+
 # ensure that the /boot/config.txt file will force HDMI output on...
 ensureBootConfig
+
+# ensure that the X Windows autostart file runs our kiosk.bash script...
+ensureXautostart
 
 # exit cleanly, with no error...
 exit 0

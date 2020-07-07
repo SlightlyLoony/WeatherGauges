@@ -190,6 +190,7 @@ _mkdir /home/pi/deploy/weathergauges
 # copy files to the deployment directories...
 echo "Copying deployment files..."
 _scp_to scripts/target/pi/* /home/pi/deploy/pi
+_scp_to scripts/target/pi/.bash_profile /home/pi/deploy/pi
 _scp_to scripts/target/weathergauges/* /home/pi/deploy/weathergauges
 
 # execute the phase 1 setup file on the target...
