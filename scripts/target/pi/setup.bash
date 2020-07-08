@@ -60,7 +60,8 @@ getExitCode() {
 # Echos the number of seconds since the given file was last modified.
 # $1 is the path to the file
 modifiedSecondsAgo() {
-  echo $(( "$(date +%s)" - "$(date -r apt.test +%s)" ))
+  # shellcheck disable=SC2086
+  echo $(( "$(date +%s)" - "$(date -r ${APT_TEST} +%s)" ))
 }
 
 
@@ -216,7 +217,7 @@ updateOS() {
 
   # if we've updated within a day, skip this...
   local APT_TEST
-  APT_TEST="apt.test"
+  APT_TEST="apt.flag"
   if [[ -f "${APT_TEST}" ]]
   then
     local MOD_SECS
@@ -383,7 +384,7 @@ ensureXautostart() {
 ensureUnclutter() {
 
   # have we already installed this thing?
-  if command -v unclutter
+  if command -v unclutter >/dev/null
   then
     echo "The unclutter package has already been installed..."
   else
@@ -422,20 +423,37 @@ checkTimeSync() {
 ensureLocale() {
 
   # do we already have the en_US.UTF-8 locale?
-  local COUNT
-  COUNT=$( locale -a | grep -c en_US\.utf8 )
-  if (( COUNT > 0 ))
+  # the file "locale.flag" exists if we've already done this...
+  local LOCALE_FLAG
+  LOCALE_FLAG="locale.flag"
+  if [[ -f "${LOCALE_FLAG}" ]]
   then
-    echo "The locale -a | grep -c en_US\.utf8 has already been generated..."
+    echo "The locale en_US\.utf8 has already been generated..."
   else
     echo "Generating en_US.UTF-8 locale (this might take a while)..."
-    sudo locale-gen --purge en_US.UTF-8 >/dev/null
+    sudo cp "/home/${DEFAULT_USER}/deploy/pi/locale.gen" /etc/locale.gen
+    sudo chown root:root /etc/locale.gen
+    sudo locale-gen >/dev/null
+    touch "${LOCALE_FLAG}"
     echo "Finished generating en_US.UTF-8 locale..."
   fi
 }
 
 
-# validate that time synchronization is running
+# Create a bash profile for the given users.
+# $1..n are the users
+createBashProfile() {
+
+  local THIS_USER
+  for THIS_USER in "$@"
+  do
+    sudo cp /home/"${DEFAULT_USER}"/deploy/pi/.bash_profile /home/"${THIS_USER}"/.bash_profile
+    sudo chown "${THIS_USER}":"${THIS_USER}" /home/"${THIS_USER}"/.bash_profile
+    # shellcheck disable=SC1090
+    echo "Set up bash profile for ${THIS_USER}..."
+  done
+}
+
 
 
 ###############
@@ -463,12 +481,9 @@ ensureUser "${APP_USER}" "${APP_PASSWORD}"
 ensureLocale
 
 # create a bash profile for the default user and the app user, and load it...
-cp /home/"${DEFAULT_USER}"/deploy/pi/.bash_profile /home/"${DEFAULT_USER}"/.bash_profile
-sudo cp /home/"${DEFAULT_USER}"/deploy/pi/.bash_profile /home/"${APP_USER}"/.bash_profile
-sudo chown "${APP_USER}":"${APP_USER}" /home/"${APP_USER}"/.bash_profile
+createBashProfile "${DEFAULT_USER}" "${APP_USER}"
 # shellcheck disable=SC1090
 source /home/"${DEFAULT_USER}"/.bash_profile
-echo "Set up bash profile for ${DEFAULT_USER} and ${APP_USER}..."
 
 # make sure time synchronization is running...
 checkTimeSync
@@ -490,6 +505,9 @@ ensureBootConfig
 
 # ensure that the X Windows autostart file runs our kiosk.bash script...
 ensureXautostart
+
+# reboot the target to get all these changes to take effect...
+sudo shutdown -r now && true
 
 # exit cleanly, with no error...
 exit 0

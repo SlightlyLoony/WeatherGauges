@@ -91,7 +91,7 @@ _ssh() {
 #    $3 is local source path (globbable)
 #    $4 is remote destination path
 _scp_to_remote() {
-  scp -q -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$3" "$1"@"$2":"$4" 2>/dev/null
+  scp -q -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $3 "$1"@"$2":"$4" 2>/dev/null
 }
 
 
@@ -106,7 +106,7 @@ _scp_to_remote() {
 #    $3 is remote source path (globbable)
 #    $4 is local destination path
 _scp_from_remote() {
-  scp -q -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2":"$3" "$4" 2>/dev/null
+  scp -q -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2":$3 "$4" 2>/dev/null
 }
 
 
@@ -131,7 +131,7 @@ _mkdir() {
 # $1 is the path to the local files (globbable)
 # $2 is the path of the remote destination directory
 _scp_to() {
-  _scp_to_remote ${DEFAULT_USER} ${HOST} $1 $2
+  _scp_to_remote ${DEFAULT_USER} ${HOST} "$1" "$2"
 }
 
 
@@ -189,16 +189,22 @@ _mkdir /home/pi/deploy/weathergauges
 
 # copy files to the deployment directories...
 echo "Copying deployment files..."
-_scp_to scripts/target/pi/* /home/pi/deploy/pi
+_scp_to "scripts/target/pi/*" /home/pi/deploy/pi
 _scp_to scripts/target/pi/.bash_profile /home/pi/deploy/pi
-_scp_to scripts/target/weathergauges/* /home/pi/deploy/weathergauges
+_scp_to "scripts/target/weathergauges/*" /home/pi/deploy/weathergauges
 
 # execute the phase 1 setup file on the target...
 echo "Running phase 1 setup on ${HOST}..."
 echo "bash deploy/pi/setup.bash" | _ssh "${DEFAULT_USER}" "${HOST}" && true; EC=$?
-if (( EC != 0 ))
+
+# We're expecting the last thing in phase 1 setup is a reboot, which will kill the
+# SSH connection and return a 255.  If we change this someday to an ordinary termination,
+# then we'll be expecting a return of 0.  So we check for both...
+if (( (EC != 255) && (EC != 0) ))
 then
   cat ./deploy.error
-  echo "Fatal error in phase 1 setup, aborting..."
+  echo "Fatal error (${EC}) in phase 1 setup, aborting..."
   exit $EC
+else
+  echo "Phase 1 setup on ${HOST} completed..."
 fi
