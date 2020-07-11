@@ -1,6 +1,5 @@
 package com.dilatush.weathergauges;
 
-import com.dilatush.util.Config;
 import com.dilatush.weathergauges.jetty.handlers.StatsHandler;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
@@ -10,11 +9,9 @@ import org.eclipse.jetty.server.handler.ResourceHandler;
 import org.eclipse.jetty.server.session.DefaultSessionIdManager;
 import org.eclipse.jetty.server.session.SessionHandler;
 
-import java.io.File;
 import java.util.Timer;
 import java.util.logging.Logger;
 
-import static com.dilatush.util.General.isNotNull;
 import static java.lang.Thread.sleep;
 import static java.util.logging.Level.SEVERE;
 
@@ -32,6 +29,8 @@ public class WeatherGauges {
     /**
      * The entry point for the Weather Gauges program.  Only one command line argument is allowed, and it is optional: the path to the Weather Gauges
      * JSON configuration file.  If this argument is missing, the default path ("./configuration.json") is used.
+     * <p>The command line arguments:</p>
+     * 1.  The web server's port
      *
      * @param _args the command line arguments.
      */
@@ -47,15 +46,13 @@ public class WeatherGauges {
         // before anything can possibly go wrong, make a log entry...
         LOGGER.info( "WeatherGauges is starting..." );
 
-        WeatherGaugesConfiguration weatherGaugesConfiguration = getConfiguration( _args );
-        if( weatherGaugesConfiguration == null ) {
-
-        }
+        // get our command line arguments...
+        if( _args.length != 1 )
+            throw new IllegalArgumentException( "WeatherGauges requires 1 command line argument" );
+        int port = Integer.parseInt( _args[0] );
 
         // start up the web server...
-        Server server = getServer( weatherGaugesConfiguration.webServerPort );
-
-
+        Server server = getServer( port );
 
         // TODO: what should I do in the event of an error???
         // Maybe we should bring up the web server first, and launch a browser to an error page if something
@@ -68,42 +65,6 @@ public class WeatherGauges {
         catch( Exception _e ) {
             LOGGER.log( SEVERE, "Bad things happened and we're shutting down the server...", _e );
         }
-    }
-
-
-    /**
-     * Return a {@link WeatherGaugesConfiguration} instance derived from the Weather Gauges configuration file.  Upon any problem, a
-     * <code>null</code> is returned.
-     *
-     * @param _args the Weather Gauges program command line arguments upon invocation.
-     * @return the {@link WeatherGaugesConfiguration} instance derived from the Weather Gauges configuration file, or <code>null</code> if the configuration is invalid.
-     */
-    private WeatherGaugesConfiguration getConfiguration( final String[] _args ) {
-
-        Config weatherConfig = null;
-        WeatherGaugesConfiguration result = null;
-
-        try {
-            // figure out the configuration file name...
-            String config = "configuration.json";   // the default...
-            if( isNotNull( (Object) _args ) && (_args.length > 0) ) config = _args[0];
-            if( !new File( config ).exists() ) {
-                System.out.println( "WeatherGauges configuration file " + config + " does not exist!" );
-                return null;
-            }
-
-            // get our config...
-            weatherConfig = Config.fromJSONFile( config );
-        }
-        catch( Exception _e ) {
-            // do nothing; we will return a null...
-        }
-
-        if( weatherConfig != null ) {
-            result = new WeatherGaugesConfiguration( weatherConfig );
-        }
-
-        return result;
     }
 
 

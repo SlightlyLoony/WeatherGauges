@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: com.dilatush.weathergauges.WeatherGauges
+Class-Path: Util.jar jetty-all-9.4.30.v20200611-uber.jar
+

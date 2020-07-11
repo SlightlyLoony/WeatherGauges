@@ -1,0 +1,11 @@
+<component name="ArtifactManager">
+  <artifact build-on-make="true" name="WeatherGauges:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts</output-path>
+    <root id="root">
+      <element id="archive" name="WeatherGauges.jar">
+        <element id="module-output" name="WeatherGauges" />
+      </element>
+      <element id="library" level="project" name="Util" />
+    </root>
+  </artifact>
+</component>
