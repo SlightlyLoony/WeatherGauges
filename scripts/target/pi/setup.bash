@@ -129,31 +129,14 @@ ensureUser() {
 }
 
 
-# Update the Linux OS and upgrade installed packages.  Returns 0 if everything worked correctly, or an error code if one of the commands
-# failed.  If any commands fail, the commands following the failed command will not be executed.  Progress messages are output, but the stdout output
-# of the apt-get commands is stored in /home/pi/apt.stdout, and the stderr output in /home/pi/apt.stderr.
-updateOS() {
+# Update the APT package information.
+updatePackageInfo() {
+
+  echo "Updating APT package information; this could take a while..."
 
   # delete our apt history files, if they exist...
   if [[ -f /home/pi/apt.stdout ]]; then rm /home/pi/apt.stdout; fi
   if [[ -f /home/pi/apt.stderr ]]; then rm /home/pi/apt.stderr; fi
-
-  # if we've updated within a day, skip this...
-  local APT_TEST
-  APT_TEST="apt.flag"
-  if [[ -f "${APT_TEST}" ]]
-  then
-    local MOD_SECS
-    MOD_SECS=$(modifiedSecondsAgo "${APT_TEST}")
-    if (( MOD_SECS < 86400 ))
-    then
-      echo "Skipping APT update/upgrade/autoremove, as we've done it within the day..."
-      return 0
-    fi
-  fi
-
-  # warn the user that we've got a slow thing happening...
-  echo "Running APT update/upgrade/autoremove - may take a while..."
 
   # download current package information...
   # shellcheck disable=SC2024
@@ -165,6 +148,30 @@ updateOS() {
     return $EC
   fi
   echo "APT packages updated..."
+}
+
+
+# Update the Linux OS and upgrade installed packages.  Returns 0 if everything worked correctly, or an error code if one of the commands
+# failed.  If any commands fail, the commands following the failed command will not be executed.  Progress messages are output, but the stdout output
+# of the apt-get commands is stored in /home/pi/apt.stdout, and the stderr output in /home/pi/apt.stderr.
+updateOS() {
+
+  # if we've updated within a day, skip this...
+  local APT_TEST
+  APT_TEST="apt.flag"
+  if [[ -f "${APT_TEST}" ]]
+  then
+    local MOD_SECS
+    MOD_SECS=$(modifiedSecondsAgo "${APT_TEST}")
+    if (( MOD_SECS < 86400 ))
+    then
+      echo "Skipping APT upgrade and autoremove, as we've done it within the day..."
+      return 0
+    fi
+  fi
+
+  # warn the user that we've got a slow thing happening...
+  echo "Running APT upgrade and autoremove - may take a while..."
 
   # install upgrades of already-installed packages...
   # shellcheck disable=SC2024
@@ -189,6 +196,48 @@ updateOS() {
   echo "Unused APT packages automatically removed..."
   touch "${APT_TEST}"
   return 0
+}
+
+
+# Install the given APT package if has not already been installed.
+# $1 is the package name to install
+ensurePackage() {
+
+  local PKG
+  PKG=$1
+
+  # the package has been installed alredy...
+  if dpkg -s "${PKG}" &>/dev/null
+  then
+    echo "Package ${PKG} is already installed..."
+  # otherwise, we need to actually install it...
+  else
+    # shellcheck disable=SC2024
+    sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet --no-install-recommends install "${PKG}" \
+        >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
+    EC=$?
+    if (( EC != 0 ))  # exit immediately if there was a problem...
+    then
+      echo "Installing package xserver-xorg failed (see apt.stdout and apt.stderr for details)..."
+      return $EC
+    fi
+    echo "Installed package ${PKG}..."
+  fi
+  return 0
+}
+
+
+# Install the minimum GUI components: XWindows and associated bits, OpenBox window manager, and the Chromium browser...
+ensureGUI() {
+
+  # ensure all the packages we need are installed...
+  echo "Ensuring all needed GUI components are installed..."
+  ensurePackage xserver-xorg
+  ensurePackage x11-xserver-utils
+  ensurePackage xinit
+  ensurePackage openbox
+  ensurePackage chromium-browser
+  echo "All needed GUI components are installed..."
 }
 
 
@@ -378,6 +427,22 @@ createBashProfile() {
 }
 
 
+# Configures the Raspberry Pi for automatic login to the pi user.
+ensureAutoLogin() {
+
+  # link the file for the getty service (for a CLI); this is taken from the raspi-config script...
+  sudo ln -fs /lib/systemd/system/getty@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
+
+  # create the autologin file; this is taken from the raspi-config script...
+  cat | sudo tee /etc/systemd/system/getty@tty1.service.d/autologin.conf >/dev/null << EOF
+  [Service]
+  ExecStart=
+  ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
+EOF
+
+}
+
+
 
 ###############
 # Main script #
@@ -405,11 +470,15 @@ ensureLocale
 
 # create a bash profile for the default user and the app user, and load it...
 createBashProfile "${DEFAULT_USER}" "${APP_USER}"
-# shellcheck disable=SC1090
-source /home/"${DEFAULT_USER}"/.bash_profile
 
 # make sure time synchronization is running...
 checkTimeSync
+
+# update APT package information...
+updatePackageInfo
+
+# install minimal GUI components...
+ensureGUI
 
 # update the operating system and installed apps...
 updateOS
@@ -421,13 +490,16 @@ ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 copyAppFiles ${APP_USER}
 
 # ensure that unclutter is installed...
-ensureUnclutter
+#ensureUnclutter
 
 # ensure that the /boot/config.txt file will force HDMI output on...
 ensureBootConfig
 
+# ensure that automatic login to pi is enabled...
+ensureAutoLogin
+
 # ensure that the X Windows autostart file runs our kiosk.bash script...
-ensureXautostart
+#ensureXautostart
 
 # reboot the target to get all these changes to take effect...
 sudo shutdown -r now && true

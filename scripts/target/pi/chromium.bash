@@ -9,7 +9,7 @@ killChromiumPidFile() {
 }
 
 
-# Ensure that chromium is not running.
+# Ensure that chromium is not running.  The chromium process' PID is in chromium.pid
 ensureNoChromium() {
 
   # if there is a PID file, then chromium is running...
@@ -20,37 +20,21 @@ ensureNoChromium() {
     local PID
     PID=$( cat "${CHROMIUM_PID_FILE}" )
 
-    # if a process with that PID exists...
-    if kill -0 "${PID}"
+    # make sure it's not running...
+    if ensureNotRunning "${PID}"
+
+    # log the possible outcomes...
     then
-
-      # terminate it (and wait)...
-      kill "${PID}" && true
-      while kill -0 "${PID}"
-      do
-        echo $?
-        sleep 1
-      done
-
-      # if that didn't do the trick...
-      if kill -0 "${PID}"
-      then
-
-        # kill it...
-        kill -9 "${PID}"
-        echo "Chromimum had to be killed; it was a bad, bad boy..."
-        killChromiumPidFile
-
-      else
-        killChromiumPidFile
-        echo "Chromium successfully terminated..."
-      fi
+      echo "Chromium was terminated normally, or was no longer running..."
     else
-      killChromiumPidFile
-      echo "Chromium is supposed to be running, but is not..."
+      echo "Chromium had to be killed; it was a bad, bad boy..."
     fi
+
+    # make sure the PID file is gone...
+    killChromiumPidFile
+
   else
-    echo "Chromium is not running..."
+    echo "Chromium was not running..."
   fi
 }
 
@@ -58,18 +42,22 @@ ensureNoChromium() {
 # Launch chromium.
 # $1 is the name of the page to load
 launchChromium() {
-set -x
+
+  echo "Starting chromium..."
   # start chromium in the background...
-  DISPLAY=:0 chromium-browser               `# the actual app`                                        \
+  nohup DISPLAY=:0 chromium-browser               `# the actual app`                                        \
     --noerrdialogs                          `# don't pop up any sort of error dialog`                 \
     --disable-component-update              `# don't check for updates`                               \
     --check-for-update-interval=1576800000  `# 50 year update check interval`                         \
     --kiosk                                 `# kiosk mode, no menus, toolbar, etc.`                   \
     --no-default-browser-check              `# don't check to see if chromium is the default browser` \
-    http://localhost/"${1}" &
+    http://localhost/"${1}" &>/dev/null &
 
     # save the background process' PID...
     echo "$!" > "${CHROMIUM_PID_FILE}"
+
+    # disown this job, so it doesn't prevent our terminal from exiting...
+    disown -h "$!"
 }
 
 
@@ -78,6 +66,6 @@ set -x
 ensureChromium() {
   ensureNoChromium
   launchChromium "${1}"
-}
 
-# DISPLAY=:0 chromium-browser --noerrdialogs --disable-component-update --check-for-update-interval=1576800000 --kiosk --no-default-browser-check http://paradiseweather.info/weather_js.html &
+  echo "Chromium started..."
+}

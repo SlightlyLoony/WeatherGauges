@@ -77,3 +77,46 @@ osName() {
 hostName() {
   hostname
 }
+
+
+# Ensure that the given process (by PID) is no longer running.  This function returns with a 0 if the process wasn't running at all, or was ended by
+# SIGTERM, or 1 if the process was killed by SIGKILL.  In both cases, when this function returns the process is no longer running.  Note that if the
+# specified process cannot be killed by SIGKILL (which is not supposed to be possible), this function will hang.
+# $1 is the PID of the process to ensure is not running
+ensureNotRunning() {
+
+  local PID COUNTDOWN
+  PID=$1
+
+  # if a process with that PID exists...
+  if kill -0 "${PID}"
+  then
+
+    # send SIGTERM to the process, and wait up to 10 seconds for it to terminate...
+    COUNTDOWN=10
+    kill "${PID}" && true
+    while kill -0 "${PID}" && (( COUNTDOWN-- > 0 ))
+    do
+      sleep 1
+    done
+
+    # if that didn't do the trick (because we took over 10 seconds)...
+    if kill -0 "${PID}"
+    then
+
+      # kill it and wait for termination (this COULD hang, if SIGKILL failed somehow)...
+      kill -9 "${PID}" && true
+      while kill -0 "${PID}"
+      do
+        sleep 1
+      done
+      return 1
+    else
+      # the process was terminated normally...
+      return 0
+    fi
+  else
+    # the process wasn't running when this function was called...
+    return 0
+  fi
+}

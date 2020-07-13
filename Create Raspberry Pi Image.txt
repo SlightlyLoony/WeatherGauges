@@ -4,8 +4,8 @@ This documents details the process for creating a Raspberry Pi operating system 
 
 1.  Mount a 32GB SD RAM card in the development system (Mac).
 
-2.  Use the Raspberry Pi Imager application (in Applications) to download and install the latest operating system image.  Choose the minimal
-    configuration that includes the desktop, and the SD RAM card you mounted.  This will create an SD RAM card image with an OS bootable on the
+2.  Use the Raspberry Pi Imager application (in Applications) to download and install the latest operating system image.  Choose the "Lite" version
+    that does not include the desktop, and write it to the SD RAM card you mounted.  This will create an SD RAM card image with an OS bootable on the
     Raspberry Pi.
 
 3.  The Raspberry Pi Imager finishes by unmounting the SD RAM card.  Physically remove the SD RAM card and reinsert it to force it to mount.
@@ -56,7 +56,7 @@ This documents details the process for creating a Raspberry Pi operating system 
             sudo chown 1000:1000 /media/home/pi/.ssh/authorized_keys                # change owners...
             sudo chown 1000:1000 /media/home/pi/.ssh/id_rsa.pub                     # and again...
 
-10. Create the file /ImageID with the contents "Weather Gauges 1" on a single line.  The file should have mode 644.  Note that the trailing "1" is
+10. Create the file /media/ImageID with the contents "Weather Gauges 1" on a single line.  The file should have mode 644.  Note that the trailing "1" is
     intended as a version number.  If the image changes in some way in the future (say, a new OS version) that would affect the deployment script,
     then the version number can let the script make allowances.
 

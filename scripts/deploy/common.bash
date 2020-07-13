@@ -50,7 +50,7 @@ showUsage() {
 #  -o StrictHostKeyChecking=no      disables verification that a host is in the known hosts file (but still adds the host if it's not there)
 #  -o UserKnownHostsFile=/dev/null  is a trick to prevent the actual known_hosts file from being polluted by all the deployment logins
 _ssh() {
-  local SSH
+  local SSH EC
   read -r -d '' SSH
   ssh -q -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$1"@"$2" "$SSH" 2>./deploy.error
 }
@@ -90,7 +90,7 @@ _scp_from_remote() {
 # $1 is IP address in dotted-quad form (like 10.2.4.246), or a valid host name.
 # Returns 0 if host is up.
 isHostUp() {
-  ping -c 1 -W 200 -i 0.1 -q $1 >/dev/null 2>/dev/null
+  ping -c 1 -W 200 -i 0.1 -q "$1" >/dev/null 2>/dev/null
   return $?
 }
 
@@ -107,7 +107,7 @@ _mkdir() {
 # $1 is the path to the local files (globbable)
 # $2 is the path of the remote destination directory
 _scp_to() {
-  _scp_to_remote ${DEFAULT_USER} ${HOST} "$1" "$2"
+  _scp_to_remote ${DEFAULT_USER} "${HOST}" "$1" "$2"
 }
 
 
@@ -120,6 +120,7 @@ waitForBoot() {
   do
     sleep 1
     CONN=$( nc -G 1 -w 1 "${1}" 22 && true ) && true
+    # shellcheck disable=SC2181
     if (( $? == 0 ))
     then
       if (( $(grep -c "OpenSSH" <<< "$CONN" && true ) > 0 ))

@@ -79,7 +79,7 @@ _mkdir /home/pi/deploy/weathergauges
 # copy files to the deployment directories...
 echo "Copying deployment files..."
 _scp_to "scripts/target/pi/*" /home/pi/deploy/pi
-_scp_to scripts/target/pi/.bash_profile /home/pi/deploy/pi
+_scp_to "scripts/target/pi/.bash_profile" /home/pi/deploy/pi
 _scp_to "scripts/target/weathergauges/*" /home/pi/deploy/weathergauges
 
 # execute the phase 1 setup file on the target...
@@ -103,6 +103,7 @@ waitForBoot "${HOST}"
 
 # execute the phase 2 setup file on the target...
 echo "bash deploy/pi/setup2.bash" | _ssh "${DEFAULT_USER}" "${HOST}" && true; EC=$?
+echo $EC
 
 # We're expecting the last thing in phase 2 setup is a reboot, which will kill the
 # SSH connection and return a 255.  If we change this someday to an ordinary termination,

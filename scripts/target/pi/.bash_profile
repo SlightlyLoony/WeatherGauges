@@ -5,3 +5,7 @@ LANGUAGE=en_US.UTF-8
 
 # Colorize ls by default...
 alias ls='ls --color=auto'
+
+# TODO: remove this!
+export DISPLAY=:0
+[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && startx -- -nocursor
