@@ -1,0 +1,7 @@
+# You may place a similar script in $HOME/.config/openbox/autostart
+# to run user-specific things.
+xset -dpms                                # turn off dpms blanking until next boot
+xset s reset                              # force screen on
+xset s off                                # turn off screensaver
+xset s noblank                            # no screensaver
+xset s 0                                  # disable blanking until next boot

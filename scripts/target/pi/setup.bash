@@ -20,7 +20,7 @@ changeHostName() {
 ensureHostName() {
   if [[ $(hostName) != "$WEATHERGAUGES_HOSTNAME" ]]
   then
-    changeHostName ${WEATHERGAUGES_HOSTNAME}
+    changeHostName "${WEATHERGAUGES_HOSTNAME}"
     if [[ $(hostName) != "$WEATHERGAUGES_HOSTNAME" ]]
     then
       echo "Failed to change target hostname to ${WEATHERGAUGES_HOSTNAME}"
@@ -333,49 +333,6 @@ ensureBootConfig() {
 }
 
 
-# Ensure that the /etc/xdg/lxsession/LXDE-pi/autostart file contains a command to run our kiosk bash script.
-ensureXautostart() {
-
-  # have we already configured this file?
-  local AC
-  AC=$( sudo cat /etc/xdg/lxsession/LXDE-pi/autostart | grep -c "^@bash /home/weathergauges/kiosk.bash" && true ) && true
-  if (( AC != 0 ))
-  then
-    echo "The X Windows autostart file (/etc/xdg/lxsession/LXDE-pi/autostart) is already configured to run the kiosk.bash script..."
-  else
-
-    # add the HDMI configuration lines...
-    echo "@bash /home/weathergauges/kiosk.bash" | sudo tee -a /etc/xdg/lxsession/LXDE-pi/autostart >/dev/null
-    echo "Modified the X Windows autostart file (/etc/xdg/lxsession/LXDE-pi/autostart) to run the kiosk.bash script..."
-  fi
-
-}
-
-
-# Ensure that unclutter is installed (it turns off cursor on kiosk screen).
-ensureUnclutter() {
-
-  # have we already installed this thing?
-  if command -v unclutter >/dev/null
-  then
-    echo "The unclutter package has already been installed..."
-  else
-    echo "Installing unclutter..."
-    local EC
-
-    # shellcheck disable=SC2024
-    sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet install unclutter >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
-    EC=$?
-    if (( EC != 0 ))
-    then
-      echo "Installing unclutter failed (see apt.stdout and apt.stderr for details)..."
-      exit 1
-    fi
-    echo "Installed unclutter..."
-  fi
-}
-
-
 # Check to make sure time synchronization is running.
 checkTimeSync() {
 
@@ -443,6 +400,13 @@ EOF
 }
 
 
+# Ensure Openbox autostart file is in place...
+ensureOpenboxAutostart() {
+  sudo cp --preserve=mode --recursive deploy/pi/autostart /home/pi/.config/openbox
+  sudo chown --recursive "pi:pi" "/home/pi/.config/openbox"
+}
+
+
 
 ###############
 # Main script #
@@ -487,10 +451,7 @@ updateOS
 ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 
 # copy application deployment files
-copyAppFiles ${APP_USER}
-
-# ensure that unclutter is installed...
-#ensureUnclutter
+copyAppFiles "${APP_USER}"
 
 # ensure that the /boot/config.txt file will force HDMI output on...
 ensureBootConfig
@@ -498,11 +459,29 @@ ensureBootConfig
 # ensure that automatic login to pi is enabled...
 ensureAutoLogin
 
-# ensure that the X Windows autostart file runs our kiosk.bash script...
-#ensureXautostart
+# ensure that Openbox autostart is in place...
+ensureOpenboxAutostart
 
 # reboot the target to get all these changes to take effect...
 sudo shutdown -r now && true
 
 # exit cleanly, with no error...
 exit 0
+
+
+# export DISPLAY=:0
+# raspi-config advanced options full KMS GL driver
+
+
+#       if ! sed -n "/\[pi4\]/,/\[/ !p" $CONFIG | grep -q "^dtoverlay=vc4-kms-v3d" ; then
+#         ASK_TO_REBOOT=1
+#       fi
+#       sed $CONFIG -i -e "s/^dtoverlay=vc4-fkms-v3d/#dtoverlay=vc4-fkms-v3d/g"
+#       sed $CONFIG -i -e "s/^#dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d/g"
+#       if ! sed -n "/\[pi4\]/,/\[/ !p" $CONFIG | grep -q "^dtoverlay=vc4-kms-v3d" ; then
+#         printf "[all]\ndtoverlay=vc4-kms-v3d\n" >> $CONFIG
+#       fi
+#       STATUS="The full KMS GL driver is enabled."
+#       ;;
+
+# $CONFIG == "/boot/config.txt"
