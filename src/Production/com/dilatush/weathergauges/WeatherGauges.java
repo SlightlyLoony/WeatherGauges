@@ -22,15 +22,14 @@ import static java.util.logging.Level.SEVERE;
  */
 public class WeatherGauges {
 
+    private final static int PORT = 8888;
+
     private Logger LOGGER;
     private Timer timer;
 
 
     /**
-     * The entry point for the Weather Gauges program.  Only one command line argument is allowed, and it is optional: the path to the Weather Gauges
-     * JSON configuration file.  If this argument is missing, the default path ("./configuration.json") is used.
-     * <p>The command line arguments:</p>
-     * 1.  The web server's port
+     * The entry point for the Weather Gauges program.  No command line arguments are used.
      *
      * @param _args the command line arguments.
      */
@@ -46,13 +45,8 @@ public class WeatherGauges {
         // before anything can possibly go wrong, make a log entry...
         LOGGER.info( "WeatherGauges is starting..." );
 
-        // get our command line arguments...
-        if( _args.length != 1 )
-            throw new IllegalArgumentException( "WeatherGauges requires 1 command line argument" );
-        int port = Integer.parseInt( _args[0] );
-
         // start up the web server...
-        Server server = getServer( port );
+        Server server = getServer( PORT );
 
         // TODO: what should I do in the event of an error???
         // Maybe we should bring up the web server first, and launch a browser to an error page if something

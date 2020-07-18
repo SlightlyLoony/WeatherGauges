@@ -1,0 +1,21 @@
+[Unit]
+Description=Weather Gauges Server
+After=syslog.target
+
+[Service]
+User=weathergauges
+Group=weathergauges
+Type=simple
+WorkingDirectory=/home/weathergauges/app
+ExecStart=/usr/bin/java -ea:com.dilatush -jar /home/weathergauges/app/WeatherGauges.jar
+StandardOutput=journal
+
+# 143 is the exit code of a Java process stopped by a TERM, which is what systemd tries first when stopping a process
+SuccessExitStatus=143
+
+# give the process time to stop gracefully; after this time a hard KILL is sent..
+TimeoutStopSec=10
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

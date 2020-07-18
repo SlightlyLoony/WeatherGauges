@@ -234,6 +234,34 @@ ensureJava() {
 }
 
 
+# Ensure that nftables is installed...
+ensureNftables() {
+  # first make sure the app is installed...
+  ensurePackage nftables
+
+  # then get its configuration file in place...
+  sudo cp deploy/pi/nftables.conf /etc/nftables.conf
+  sudo chmod 755 /etc/nftables.conf
+  sudo chown root:root /etc/nftables.conf
+
+  # and finally we need to enable it to start when booting...
+  sudo systemctl enable nftables.service
+}
+
+
+# Ensure that the weather gauges service is installed and enabled...
+ensureWeatherGaugesService() {
+
+  # put the services file in the right place...
+  sudo cp deploy/weathergauges/weathergauges.service /etc/systemd/system
+
+  # enable the service...
+  sudo systemctl enable weathergauges.service
+
+  echo "Weather Gauges service has been installed and enabled..."
+}
+
+
 # Install the minimum GUI components: XWindows and associated bits, OpenBox window manager, and the Chromium browser...
 ensureGUI() {
 
@@ -383,7 +411,7 @@ createBashProfile() {
   local THIS_USER
   for THIS_USER in "$@"
   do
-    sudo cp /home/"${DEFAULT_USER}"/deploy/pi/.bash_profile /home/"${THIS_USER}"/.bash_profile
+    sudo cp /home/"${DEFAULT_USER}"/deploy/"${THIS_USER}"/.bash_profile /home/"${THIS_USER}"/.bash_profile
     sudo chown "${THIS_USER}":"${THIS_USER}" /home/"${THIS_USER}"/.bash_profile
     # shellcheck disable=SC1090
     echo "Set up bash profile for ${THIS_USER}..."
@@ -469,6 +497,9 @@ ensureGUI
 # ensure that we have Java installed...
 ensureJava
 
+# ensure that we have nftables installed...
+ensureNftables
+
 # update the operating system and installed apps...
 updateOS
 
@@ -490,15 +521,11 @@ ensureOpenboxAutostart
 # ensure that we have full GL drivers enabled...
 ensureGLdrivers
 
+# ensure service is installed...
+ensureWeatherGaugesService
+
 # reboot the target to get all these changes to take effect...
 sudo shutdown -r now && true
 
 # exit cleanly, with no error...
 exit 0
-
-
-# export DISPLAY=:0
-# raspi-config advanced options full KMS GL driver
-
-
-# sudo apt-get install tmux

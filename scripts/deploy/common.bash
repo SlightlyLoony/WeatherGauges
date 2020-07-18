@@ -1,6 +1,7 @@
 ############
 # Invariant parameters:
 DEFAULT_USER="pi"
+APP_USER="weathergauges"
 IMAGE_ID="Weather Gauges 1"
 IMAGE_ID_PATH="/ImageID"
 
