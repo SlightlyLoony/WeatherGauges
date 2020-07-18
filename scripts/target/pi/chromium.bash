@@ -43,15 +43,19 @@ ensureNoChromium() {
 # $1 is the name of the page to load
 launchChromium() {
 
+  # make certain we have a display defined...
+  export DISPLAY=:0
+
   echo "Starting chromium..."
   # start chromium in the background...
-  nohup DISPLAY=:0 chromium-browser               `# the actual app`                                        \
+  nohup chromium-browser                    `# the actual app`                                        \
     --noerrdialogs                          `# don't pop up any sort of error dialog`                 \
     --disable-component-update              `# don't check for updates`                               \
     --check-for-update-interval=1576800000  `# 50 year update check interval`                         \
     --kiosk                                 `# kiosk mode, no menus, toolbar, etc.`                   \
     --no-default-browser-check              `# don't check to see if chromium is the default browser` \
-    http://localhost/"${1}" &>/dev/null &
+    --app=http://localhost/"${1}"           `# launch our app`                                        \
+    &>/dev/null &
 
     # save the background process' PID...
     echo "$!" > "${CHROMIUM_PID_FILE}"

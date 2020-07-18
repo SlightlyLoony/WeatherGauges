@@ -212,6 +212,7 @@ ensurePackage() {
     echo "Package ${PKG} is already installed..."
   # otherwise, we need to actually install it...
   else
+    echo "Package ${PKG} was not installed, installing..."
     # shellcheck disable=SC2024
     sudo DEBIAN_FRONTEND=noninteractive apt-get --yes --quiet --no-install-recommends install "${PKG}" \
         >>/home/pi/apt.stdout 2>>/home/pi/apt.stderr && true;
@@ -224,6 +225,12 @@ ensurePackage() {
     echo "Installed package ${PKG}..."
   fi
   return 0
+}
+
+
+# Ensure that java is installed...
+ensureJava() {
+  ensurePackage default-jdk
 }
 
 
@@ -396,7 +403,7 @@ ensureAutoLogin() {
   ExecStart=
   ExecStart=-/sbin/agetty --autologin $USER --noclear %I \$TERM
 EOF
-
+  echo "Automatic login of user pi enabled..."
 }
 
 
@@ -404,6 +411,21 @@ EOF
 ensureOpenboxAutostart() {
   sudo cp --preserve=mode --recursive deploy/pi/autostart /home/pi/.config/openbox
   sudo chown --recursive "pi:pi" "/home/pi/.config/openbox"
+  echo "Openbox autostart configured..."
+}
+
+
+# Ensure full GL drivers configured...
+# Taken from raspi-config script.
+ensureGLdrivers() {
+  local CONFIG
+  CONFIG="/boot/config.txt"
+  sudo sed $CONFIG -i -e "s/^dtoverlay=vc4-fkms-v3d/#dtoverlay=vc4-fkms-v3d/g"
+  sudo sed $CONFIG -i -e "s/^#dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d/g"
+  if ! sed -n "/\[pi4\]/,/\[/ !p" $CONFIG | grep -q "^dtoverlay=vc4-kms-v3d" ; then
+    printf "[all]\ndtoverlay=vc4-kms-v3d\n" | sudo tee -a $CONFIG >/dev/null
+  fi
+  echo "GL drivers configured..."
 }
 
 
@@ -441,8 +463,11 @@ checkTimeSync
 # update APT package information...
 updatePackageInfo
 
-# install minimal GUI components...
+# ensure that we have the minimal GUI components installed...
 ensureGUI
+
+# ensure that we have Java installed...
+ensureJava
 
 # update the operating system and installed apps...
 updateOS
@@ -462,6 +487,9 @@ ensureAutoLogin
 # ensure that Openbox autostart is in place...
 ensureOpenboxAutostart
 
+# ensure that we have full GL drivers enabled...
+ensureGLdrivers
+
 # reboot the target to get all these changes to take effect...
 sudo shutdown -r now && true
 
@@ -473,15 +501,4 @@ exit 0
 # raspi-config advanced options full KMS GL driver
 
 
-#       if ! sed -n "/\[pi4\]/,/\[/ !p" $CONFIG | grep -q "^dtoverlay=vc4-kms-v3d" ; then
-#         ASK_TO_REBOOT=1
-#       fi
-#       sed $CONFIG -i -e "s/^dtoverlay=vc4-fkms-v3d/#dtoverlay=vc4-fkms-v3d/g"
-#       sed $CONFIG -i -e "s/^#dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d/g"
-#       if ! sed -n "/\[pi4\]/,/\[/ !p" $CONFIG | grep -q "^dtoverlay=vc4-kms-v3d" ; then
-#         printf "[all]\ndtoverlay=vc4-kms-v3d\n" >> $CONFIG
-#       fi
-#       STATUS="The full KMS GL driver is enabled."
-#       ;;
-
-# $CONFIG == "/boot/config.txt"
+# sudo apt-get install tmux

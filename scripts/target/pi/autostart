@@ -1,5 +1,4 @@
-# You may place a similar script in $HOME/.config/openbox/autostart
-# to run user-specific things.
+# Openbox autostart for pi user...
 xset -dpms                                # turn off dpms blanking until next boot
 xset s reset                              # force screen on
 xset s off                                # turn off screensaver
