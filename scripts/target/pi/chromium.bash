@@ -54,14 +54,8 @@ launchChromium() {
     --check-for-update-interval=1576800000  `# 50 year update check interval`                         \
     --kiosk                                 `# kiosk mode, no menus, toolbar, etc.`                   \
     --no-default-browser-check              `# don't check to see if chromium is the default browser` \
-    --app=http://localhost/"${1}"           `# launch our app`                                        \
-    &>/dev/null &
-
-    # save the background process' PID...
-    echo "$!" > "${CHROMIUM_PID_FILE}"
-
-    # disown this job, so it doesn't prevent our terminal from exiting...
-    disown -h "$!"
+    --app=http://localhost:8888/"${1}"      `# launch our app`                                        \
+    &>/home/pi/chromium.out
 }
 
 

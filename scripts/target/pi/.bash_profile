@@ -9,9 +9,10 @@ alias ls='ls --color=auto'
 # Make sure we have a display defined...
 export DISPLAY=:0
 
-# if the X server has not already been started, start it...
-# this should execute when the pi user automatically logs in...
-if [[ $( ps ux | grep -c [X]org ) -eq 0 ]]
+# If we're not running through SSH, then this is a local session - created only by automatic login, and therefore
+# created exactly once.  So we therefore run our startup script.
+# If SSH_CLIENT or SSH_TTY is defined, then we're running under SSH.
+if [[ ! -v SSH_CLIENT && ! -v SSH_TTY ]]
 then
-  startx -- -nocursor
+  source /home/pi/deploy/pi/startup.bash &>/home/pi/startup.out
 fi

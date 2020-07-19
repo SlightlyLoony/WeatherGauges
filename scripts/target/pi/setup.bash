@@ -105,7 +105,7 @@ ensureUser() {
     exit 1
   fi
 
-  # set up public SSH keys in app user...
+  # set up public SSH keys in the user...
 
   # save UID and GID of our new user...
   local APP_USER_UID
@@ -113,7 +113,7 @@ ensureUser() {
   APP_USER_UID=$(grep "${USER}" /etc/passwd | sed -n 's/[^:]*:[^:]*:\([^:]*\).*/\1/p')
   APP_USER_GID=$(grep "${USER}" /etc/passwd | sed -n 's/[^:]*:[^:]*:[^:]*:\([^:]*\).*/\1/p')
 
-  # setup .ssh directory for app user...
+  # setup .ssh directory for the user...
   if [[ ! -d "/home/${USER}/.ssh" ]]
   then
     sudo mkdir "/home/${USER}/.ssh"
@@ -259,6 +259,19 @@ ensureWeatherGaugesService() {
   sudo systemctl enable weathergauges.service
 
   echo "Weather Gauges service has been installed and enabled..."
+}
+
+
+# Ensure that the chromium browser service is installed and enabled...
+ensureChromiumService() {
+
+  # put the services file in the right place...
+  sudo cp deploy/pi/chromium.service /etc/systemd/system
+
+  # enable the service...
+  sudo systemctl enable chromium.service
+
+  echo "Chromium service has been installed and enabled..."
 }
 
 
@@ -503,7 +516,7 @@ ensureNftables
 # update the operating system and installed apps...
 updateOS
 
-# update to sshd_config to disable SSH password login for the default user and the app user...
+# update to sshd_config to disable SSH password login for our users...
 ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 
 # copy application deployment files
@@ -521,8 +534,11 @@ ensureOpenboxAutostart
 # ensure that we have full GL drivers enabled...
 ensureGLdrivers
 
-# ensure service is installed...
+# ensure Weather Gauges service is installed...
 ensureWeatherGaugesService
+
+# ensure Chromium service is installed...
+ensureChromiumService
 
 # reboot the target to get all these changes to take effect...
 sudo shutdown -r now && true

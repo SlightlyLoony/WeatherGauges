@@ -1,0 +1,18 @@
+[Unit]
+Description=Chromium Browser Server
+After=syslog.target
+
+[Service]
+User=pi
+Group=pi
+Type=simple
+WorkingDirectory=/home/pi
+ExecStart=/bin/bash /home/pi/deploy/pi/chromium_start.bash
+StandardOutput=journal
+
+# give the process time to stop gracefully; after this time a hard KILL is sent..
+TimeoutStopSec=10
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

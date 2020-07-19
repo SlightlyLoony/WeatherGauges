@@ -18,7 +18,6 @@ echo "Starting phase 2 setup of Raspberry Pi for WeatherGauges..."
 
 # Launch chromium with our kiosk page...
 killChromiumPidFile
-ensureChromium "kiosk.html"
 
 # exit cleanly, with no error...
 echo "Exiting phase 2 setup..."
