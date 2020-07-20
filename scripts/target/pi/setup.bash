@@ -356,8 +356,17 @@ ensureSSHPasswordLoginDisabled() {
 # Copy deployment files to app user.
 # $1 is app user
 copyAppFiles() {
-  sudo cp --preserve=mode --recursive deploy/"${1}/."/* /home/"${1}"
-  sudo chown --recursive "${1}:${1}" "/home/${1}"
+  sudo cp --preserve=mode "deploy/${1}/.bash_profile" "/home/${1}"
+  sudo chown "${1}:${1}" "/home/${1}/.bash_profile"
+  echo "App files copied..."
+}
+
+
+# Copy Chromium files to default user.
+copyChromiumFiles() {
+  sudo cp --preserve=mode "deploy/pi/chromium_start.bash" "chromium_start.bash"
+  sudo chown pi:pi chromium_start.bash
+  echo "Chromium files copied..."
 }
 
 
@@ -450,6 +459,7 @@ EOF
 
 # Ensure Openbox autostart file is in place...
 ensureOpenboxAutostart() {
+  mkdir -p /home/pi/.config/openbox
   sudo cp --preserve=mode --recursive deploy/pi/autostart /home/pi/.config/openbox
   sudo chown --recursive "pi:pi" "/home/pi/.config/openbox"
   echo "Openbox autostart configured..."
@@ -522,6 +532,9 @@ ensureSSHPasswordLoginDisabled  "${DEFAULT_USER}" "${APP_USER}"
 # copy application deployment files
 copyAppFiles "${APP_USER}"
 
+# copy chromium files
+copyChromiumFiles
+
 # ensure that the /boot/config.txt file will force HDMI output on...
 ensureBootConfig
 
@@ -540,8 +553,6 @@ ensureWeatherGaugesService
 # ensure Chromium service is installed...
 ensureChromiumService
 
-# reboot the target to get all these changes to take effect...
-sudo shutdown -r now && true
-
 # exit cleanly, with no error...
 exit 0
+

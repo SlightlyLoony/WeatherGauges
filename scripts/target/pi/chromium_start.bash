@@ -4,8 +4,8 @@
   # make certain we have a display defined...
   export DISPLAY=:0
 
-  # start chromium in the background...
-  nohup chromium-browser                    `# the actual app`                                        \
+  # start chromium...
+  chromium-browser                          `# the actual app`                                        \
     --noerrdialogs                          `# don't pop up any sort of error dialog`                 \
     --disable-component-update              `# don't check for updates`                               \
     --check-for-update-interval=1576800000  `# 50 year update check interval`                         \

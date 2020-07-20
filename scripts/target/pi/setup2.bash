@@ -7,7 +7,14 @@ set -euo pipefail
 
 # Include common stuff.
 source deploy/pi/common.bash
-source deploy/pi/chromium.bash
+
+
+# Cleanup after deployment...
+cleanupDeployment() {
+
+  # delete the deploy directory...
+  sudo rm -rf /home/pi/deploy
+}
 
 ###############
 # Main script #
@@ -16,8 +23,11 @@ source deploy/pi/chromium.bash
 # Tell the user what's happening...
 echo "Starting phase 2 setup of Raspberry Pi for WeatherGauges..."
 
-# Launch chromium with our kiosk page...
-killChromiumPidFile
+# cleanup the deployment files...
+cleanupDeployment
+
+# reboot the target to get all these changes to take effect...
+sudo shutdown -r now && true
 
 # exit cleanly, with no error...
 echo "Exiting phase 2 setup..."

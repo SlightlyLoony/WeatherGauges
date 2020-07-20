@@ -83,43 +83,36 @@ _scp_to "scripts/target/pi/.bash_profile" /home/pi/deploy/pi
 _scp_to "scripts/target/weathergauges/*" /home/pi/deploy/weathergauges
 _scp_to "scripts/target/weathergauges/.bash_profile" /home/pi/deploy/weathergauges
 
-# deploy the app...
-bash scripts/deploy/deployApp.bash "${HOST}"
-
 # execute the setup file on the target...
 echo "Running setup on ${HOST}..."
 echo "bash deploy/pi/setup.bash" | _ssh "${DEFAULT_USER}" "${HOST}" && true; EC=$?
 
-# We're expecting the last thing in setup is a reboot, which will kill the
-# SSH connection and return a 255.  If we change this someday to an ordinary termination,
-# then we'll be expecting a return of 0.  So we check for both...
-if (( (EC != 255) && (EC != 0) ))
+# We're expecting setup to exit cleanly...
+if (( EC != 0 ))
 then
   cat ./deploy.error
   echo "Fatal error (${EC}) in phase 1 setup, aborting..."
   exit $EC
 else
-  echo "Setup on ${HOST} completed; ${HOST} is rebooting..."
+  echo "Setup phase 1 on ${HOST} completed..."
 fi
 
-# We used to have a second phase of setup, but then we had nothing to do in it!
-#
-# # Wait for the target to reboot and start accepting SSH connections...
-# waitForBoot "${HOST}"
-#
-# # execute the phase 2 setup file on the target...
-# echo "bash deploy/pi/setup2.bash" | _ssh "${DEFAULT_USER}" "${HOST}" && true; EC=$?
-# echo $EC
-#
-# # We're expecting the last thing in phase 2 setup is a reboot, which will kill the
-# # SSH connection and return a 255.  If we change this someday to an ordinary termination,
-# # then we'll be expecting a return of 0.  So we check for both...
-# if (( (EC != 255) && (EC != 0) ))
-# then
-#   cat ./deploy.error
-#   echo "Fatal error (${EC}) in phase 2 setup, aborting..."
-#   exit $EC
-# else
-#   echo "Phase 2 setup on ${HOST} completed..."
-# fi
+# deploy the app...
+bash scripts/deploy/deployApp.bash "${HOST}"
+bash scripts/deploy/deploySite.bash "${HOST}"
 
+# execute the second phase of setup...
+echo "Running setup phase 2 on ${HOST}..."
+echo "bash deploy/pi/setup2.bash" | _ssh "${DEFAULT_USER}" "${HOST}" && true; EC=$?
+
+# We're expecting the last thing in setup phase 2 is a reboot, which will kill the
+# SSH connection and return a 255.  If we change this someday to an ordinary termination,
+# then we'll be expecting a return of 0.  So we check for both...
+if (( (EC != 255) && (EC != 0) ))
+then
+  cat ./deploy.error
+  echo "Fatal error (${EC}) in phase 2 setup, aborting..."
+  exit $EC
+else
+  echo "Phase 2 setup on ${HOST} completed; ${HOST} is rebooting..."
+fi

@@ -46,7 +46,7 @@ public class WeatherGauges {
         LOGGER.info( "WeatherGauges is starting..." );
 
         // start up the web server...
-        Server server = getServer( PORT );
+        Server server = getServer();
 
         // TODO: what should I do in the event of an error???
         // Maybe we should bring up the web server first, and launch a browser to an error page if something
@@ -74,26 +74,24 @@ public class WeatherGauges {
     /**
      * Initialize the Jetty web server for our private instance.
      *
-     * @param _port
-     *      the port to use for the web server.
      * @return
      *      the Jetty server instance.
      */
-    private Server getServer( final int _port ) {
+    private Server getServer() {
 
         // start the Jetty server...
-        Server server = new Server( _port );
+        Server server = new Server( PORT );
 
         ResourceHandler rh1 = new ResourceHandler();
         rh1.setDirectoriesListed( false );
         rh1.setWelcomeFiles( new String[] { "index.html" } );
-        rh1.setResourceBase("./pages/html");
+        rh1.setResourceBase("./html");
         ResourceHandler rh2 = new ResourceHandler();
         rh2.setDirectoriesListed( false );
-        rh2.setResourceBase("./pages/js");
+        rh2.setResourceBase("./js");
         ResourceHandler rh3 = new ResourceHandler();
         rh3.setDirectoriesListed( false );
-        rh3.setResourceBase("./pages/resources");
+        rh3.setResourceBase("./resources");
 
         server.setSessionIdManager( new DefaultSessionIdManager( server ) );
 
