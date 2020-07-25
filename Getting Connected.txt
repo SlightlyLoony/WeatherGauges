@@ -1,0 +1,46 @@
+Getting Connected
+
+There are two means for Weather Gauges to get connected to the Internet: via Ethernet or via WiFi.  In the case of Ethernet, provisioning could be
+via DHCP, or could be static.  In the case of WiFi, things are slightly more complex: the user must select the country (as frequency bands and
+channels are different per country) and band (as the Raspberry Pi's WiFi must match the user's WiFi router).  Here's how we accomplish this:
+
+1.  When we ship the Weather Gauges device, the device.mode file is set to "INITIAL".  This indicates that WiFi is disabled (by rfkill) because we
+    don't know what country the user is in, and we don't know what band to use to connect with.  If the user plugs an Ethernet cable in, and if DHCP
+    is available, then we'll have an IP address, otherwise not.
+
+    If there is no IP address, then the screen displays page /initial.html:
+
+    a.  The user uses the left and right buttons to select a country.
+    b.  The user presses both buttons to advance to band selection.
+    c.  The user uses the left and right buttons to select a band.
+    d.  The user presses both buttons, selecting the band, setting device.mode to "HOTSPOT" and causing a reboot.
+    e.  Upon rebooting, the screen displays page /hotspot.html with instructions for the user to connect to "WeatherGauges.local".
+    f.  When the user connects, the default page will be /config.html (see 2, below).
+
+    If there is an IP address, then the screen displays page /connect.html with instructions for the user to connect to the displayed IP address.
+    When the user connects, the default page will be /config.html (see 2, below).
+
+2.  The page /connect.html is displayed.  This page allows the user to configure his connection to the Internet, with one of three methods:
+
+    a.  Ethernet automatic: the default if the Raspberry Pi already has an IP address.  There's no other configuration for the user to make, but
+        we show the IP address and suggest that if the user knows how, he makes this address permanent on his router.
+
+    b.  Ethernet static: The user configures the IP address, network mask, and router address.
+
+    c.  WiFi: The user configures the country and the band (these will be defaulted if the user chose them in step 1), the SSID of the network to
+        connect to, and the WiFi password.
+
+    Once the choices above have been made, the device.mode file will be set to "CONNECT" and the Raspberry Pi will reboot.
+
+3.  If after a reboot the device.mode file is set to "CONNECT", then the selected network configuration will be applied and a test made to see if
+    the Raspberry Pi is indeed connected to the Internet.
+
+    a.  If the test succeeds: the device.mode file is set to "CONNECTED" and the /preferences.html page is displayed (see 4 below).
+
+    b.  If the test fails: the /connection_problem.html page is displayed with an explanation.  The user can choose to retry (right button), which
+        will go back to step 3.  The user can also choose to reconfigure (left button), which will set the device.mode file to "INITIAL" and go back
+        to step 2.  Finally, the user can choose to start over (both buttons), which will set the device.mode file to "INITIAL" and go back to step 1.
+
+4.  If after a reboot the device.mode file is set to "CONNECTED", then the /preferences.html page is displayed.  This page will allow the user to
+    configure which weather data vendor to use, what style of data display, and what data to display.  Once the user has finished this, the
+    device.mode file will be set to "CONFIGURED", and the normal current data display will be shown.

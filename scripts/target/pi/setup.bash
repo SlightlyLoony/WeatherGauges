@@ -289,6 +289,19 @@ ensureGUI() {
 }
 
 
+# Ensure that we have the components needed to make a hotspot...
+ensureHotspotComponents() {
+
+  # install some things we'll need...
+  echo "Ensuring hotspot components are installed..."
+  ensurePackage hostapd
+  sudo systemctl stop hostapd
+  ensurePackage dnsmasq
+  sudo systemctl stop dnsmasq
+  echo "All needed hotspot components are installed..."
+}
+
+
 # Add app user to sudoers with NOPASSWD.
 # $1..n are the users to add NOPASSWD lines for
 ensureSudoers() {
@@ -358,6 +371,8 @@ ensureSSHPasswordLoginDisabled() {
 copyAppFiles() {
   sudo cp --preserve=mode "deploy/${1}/.bash_profile" "/home/${1}"
   sudo chown "${1}:${1}" "/home/${1}/.bash_profile"
+  sudo cp --preserve=mode deploy/${1}/* "/home/${1}"
+  sudo chown "${1}:${1}" /home/${1}/*
   echo "App files copied..."
 }
 
@@ -516,6 +531,9 @@ updatePackageInfo
 
 # ensure that we have the minimal GUI components installed...
 ensureGUI
+
+# ensure that we have the components needed for a hotspot installed...
+ensureHotspotComponents
 
 # ensure that we have Java installed...
 ensureJava

@@ -5,3 +5,6 @@ LANGUAGE=en_US.UTF-8
 
 # Colorize ls by default...
 alias ls='ls --color=auto'
+
+# Run our startup script...
+bash /home/weathergauges/startup.bash
