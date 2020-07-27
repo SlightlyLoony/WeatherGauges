@@ -1,46 +1,79 @@
 Getting Connected
 
-There are two means for Weather Gauges to get connected to the Internet: via Ethernet or via WiFi.  In the case of Ethernet, provisioning could be
-via DHCP, or could be static.  In the case of WiFi, things are slightly more complex: the user must select the country (as frequency bands and
-channels are different per country) and band (as the Raspberry Pi's WiFi must match the user's WiFi router).  Here's how we accomplish this:
+The process of getting connected is controlled by two (related) state machines: one for the network connection and one for the display.
 
-1.  When we ship the Weather Gauges device, the device.mode file is set to "INITIAL".  This indicates that WiFi is disabled (by rfkill) because we
-    don't know what country the user is in, and we don't know what band to use to connect with.  If the user plugs an Ethernet cable in, and if DHCP
-    is available, then we'll have an IP address, otherwise not.
 
-    If there is no IP address, then the screen displays page /initial.html:
+Network connection state machine
 
-    a.  The user uses the left and right buttons to select a country.
-    b.  The user presses both buttons to advance to band selection.
-    c.  The user uses the left and right buttons to select a band.
-    d.  The user presses both buttons, selecting the band, setting device.mode to "HOTSPOT" and causing a reboot.
-    e.  Upon rebooting, the screen displays page /hotspot.html with instructions for the user to connect to "WeatherGauges.local".
-    f.  When the user connects, the default page will be /config.html (see 2, below).
+The state of the network connection state machine persists across Raspberry Pi boots.  The text contents of the file /home/weathergauges/nc.state
+contains the state as a simple text string.
 
-    If there is an IP address, then the screen displays page /connect.html with instructions for the user to connect to the displayed IP address.
-    When the user connects, the default page will be /config.html (see 2, below).
+State       Notes                                                                   Transition
 
-2.  The page /connect.html is displayed.  This page allows the user to configure his connection to the Internet, with one of three methods:
+INIT        This is the initial state of the network connection, and if the state   To HOTSPOT (after reboot) when country and band have been selected
+            file is missing or invalid, this state is assumed.  Being in this       and hotspot mode is enabled.
+            state means that we don't know how to connect to the internet, and
+            that we don't know if the hotspot mode is enabled.
 
-    a.  Ethernet automatic: the default if the Raspberry Pi already has an IP address.  There's no other configuration for the user to make, but
-        we show the IP address and suggest that if the user knows how, he makes this address permanent on his router.
+HOTSPOT     The network is configured as a hotspot, and we're waiting for the user  To CONNECT (after reboot) when the network configuration has been
+            to connect via WiFi and configure the network connection.               made and applied.
 
-    b.  Ethernet static: The user configures the IP address, network mask, and router address.
+CONNECT     The network configuration has been applied, but not tested.             To CONNECTED if an Internet connectivity test succeeds.
+                                                                                    Otherwise, to INIT or HOTSPOT (after reboot) depending on user
+                                                                                    selection.
 
-    c.  WiFi: The user configures the country and the band (these will be defaulted if the user chose them in step 1), the SSID of the network to
-        connect to, and the WiFi password.
+CONNECTED   The network configuration has been applied and tested.  This is the     To INIT or HOTSPOT (after reboot) depending on user selection.
+            "normal" network connection mode for WeatherGauges.                     A user may initiate this transition manually, or he may be
+                                                                                    presented with a choice after WeatherGauges detects an Internet
+                                                                                    connectivity problem.
 
-    Once the choices above have been made, the device.mode file will be set to "CONNECT" and the Raspberry Pi will reboot.
 
-3.  If after a reboot the device.mode file is set to "CONNECT", then the selected network configuration will be applied and a test made to see if
-    the Raspberry Pi is indeed connected to the Internet.
+Display state machine
 
-    a.  If the test succeeds: the device.mode file is set to "CONNECTED" and the /preferences.html page is displayed (see 4 below).
+The state of the display state machine persists across Raspberry Pi boots.  The text contents of the file /home/weathergauges/display.state contains
+the state as a simple text string.
 
-    b.  If the test fails: the /connection_problem.html page is displayed with an explanation.  The user can choose to retry (right button), which
-        will go back to step 3.  The user can also choose to reconfigure (left button), which will set the device.mode file to "INITIAL" and go back
-        to step 2.  Finally, the user can choose to start over (both buttons), which will set the device.mode file to "INITIAL" and go back to step 1.
+State       Notes                                                                   Transition
 
-4.  If after a reboot the device.mode file is set to "CONNECTED", then the /preferences.html page is displayed.  This page will allow the user to
-    configure which weather data vendor to use, what style of data display, and what data to display.  Once the user has finished this, the
-    device.mode file will be set to "CONFIGURED", and the normal current data display will be shown.
+CB          This is the initial state of the display, and if the state file is      To NC when the network connection state transitions to HOTSPOT.
+            missing or invalid, this state is assumed.  In this state, the
+            display gives the user the ability to choose the country and band
+            that WiFi should be configured for.  The country selection will
+            also affect the defaults for other selections.
+
+NC          Displays an information screen telling the user how to connect to       To PROVIDER when the network connection state transitions to
+            the hotspot to get the network configuration page.                      CONNECTED.
+
+PROVIDER    Displays an information screen telling the user how to connect to       To CF once a provider has been provisioned and tested.  Back
+            the connected WeatherGauges to set/modify the weather data              to PROVIDER (with error message) if a provider is provisioned but
+            providers.                                                              a test fails.  Note that multiple providers may be provisioned,
+                                                                                    and if so then ALL provisioned providers must test successfully.
+
+CF          Displays an information screen telling the user how to connect to       To CURRENT when a valid configuration has been entered.  Back to
+            the connected WeatherGauges to modify the device's configuration.       CF (with error message) if an invalid configuration has been
+                                                                                    entered.
+
+WHAT        Displays a page that lets the user choose amongst various actions:      If the user chooses VIEW, to CURRENT.  If the user chooses BACK,
+            VIEW - view current weather information                                 erase configuration file, set network connection state to INIT,
+            BACK - back to factory defaults                                         and display state to CB, then reboot.  If the user chooses CONN,
+            CONN - reconfigure network connection                                   set network connection state to INIT, and display state to CB,
+            PROV - reconfigure weather data providers                               then reboot.  If the user chooses PROV, set the display state to
+            CONF - reconfigure WeatherGauges configuration                          PROVIDER.  If the user chooses CONF, set the display state to CF.
+
+CURRENT     Displays the current weather information screen.                        To WHAT if the user presses both buttons.  To FORECAST (with 1
+                                                                                    day) if the user presses only the right button.  To HISTORY (with
+                                                                                    1 day) if the user presses only the left button.
+
+FORECAST    Displays the forecast information screen for a day in the future.       To CURRENT if the user presses both buttons.  If the user presses
+                                                                                    only the right button, and if there is another day of forecast
+                                                                                    data available, then advances to the next day of forecast.
+                                                                                    Otherwise does nothing.  If the user presses only the left button,
+                                                                                    and if an earlier day of forecast information is available, then
+                                                                                    goes back to that day of forecast.  Otherwise to CURRENT.
+
+HISTORY     Displays historical weather information for a day in the past.          To CURRENT if the user presses both buttons.  If the user presses
+                                                                                    only the left button, and if there is another day of history data
+                                                                                    available, then goes to that day of historical data.  Otherwise
+                                                                                    does nothing.  If the user presses only the right button, and if
+                                                                                    there is a more recent day of historical data available, then goes
+                                                                                    to that day of historical data.  Otherwise to CURRENT.
